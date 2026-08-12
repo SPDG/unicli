@@ -24,7 +24,8 @@ unicli network devices list --json --limit 50
 
 | Source | Variables / keys |
 |--------|------------------|
-| Env | `UNIFI_HOST`, `UNIFI_API_KEY`, `UNIFI_PROFILE`, `UNIFI_INSECURE` |
-| Config | `~/.config/unicli/config.yaml` — `current` + `profiles.<name>.{host,insecure}` |
+| Env | `UNIFI_HOST`, `UNIFI_API_KEY`, `UNIFI_PROFILE`, `UNIFI_INSECURE`, `UNIFI_SITE` |
+| Config | `~/.config/unicli/config.yaml` — `current` + `profiles.<name>.{host,insecure,site}` |
+| Secrets | `~/.config/unicli/credentials.json` (0600), keyed by profile name |
 
-Secrets belong in the OS keyring (keyed by profile) or a `0600` credentials file — not in committed YAML.
+Precedence: flags → env → selected profile (`--profile` / `UNIFI_PROFILE` / `current`).
