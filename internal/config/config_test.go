@@ -68,6 +68,70 @@ func TestResolveFallsBackToCurrentProfile(t *testing.T) {
 	}
 }
 
+func TestParseInsecureEnv(t *testing.T) {
+	cases := map[string]struct {
+		want bool
+		ok   bool
+	}{
+		"":      {false, false},
+		"1":     {true, true},
+		"true":  {true, true},
+		"yes":   {true, true},
+		"0":     {false, true},
+		"false": {false, true},
+		"nope":  {false, false},
+	}
+	for in, want := range cases {
+		got, ok := ParseInsecureEnv(in)
+		if got != want.want || ok != want.ok {
+			t.Fatalf("%q: got (%v,%v) want (%v,%v)", in, got, ok, want.want, want.ok)
+		}
+	}
+}
+
+func TestResolveMissingHostAndKey(t *testing.T) {
+	t.Setenv(EnvHost, "")
+	t.Setenv(EnvAPIKey, "")
+	t.Setenv(EnvProfile, "")
+	t.Setenv(EnvInsecure, "")
+	_, err := Resolve(&File{Profiles: map[string]Profile{}}, ResolveOptions{}, nil)
+	if !IsConfigError(err) {
+		t.Fatalf("want config error, got %v", err)
+	}
+}
+
+func TestResolveUnknownProfile(t *testing.T) {
+	t.Setenv(EnvHost, "")
+	t.Setenv(EnvAPIKey, "")
+	t.Setenv(EnvProfile, "")
+	_, err := Resolve(&File{Profiles: map[string]Profile{}}, ResolveOptions{Profile: "missing"}, nil)
+	if !IsConfigError(err) {
+		t.Fatalf("want config error, got %v", err)
+	}
+}
+
+func TestResolveFlagHostOverridesProfile(t *testing.T) {
+	t.Setenv(EnvHost, "")
+	t.Setenv(EnvAPIKey, "")
+	t.Setenv(EnvProfile, "")
+	t.Setenv(EnvInsecure, "")
+	ins := true
+	got, err := Resolve(&File{
+		Current: "home",
+		Profiles: map[string]Profile{
+			"home": {Host: "https://home.example", Insecure: false},
+		},
+	}, ResolveOptions{Host: "10.0.0.1", Insecure: &ins}, func(string) (string, error) {
+		return "k", nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Host != "https://10.0.0.1" || !got.Insecure || got.APIKey != "k" {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")

@@ -35,6 +35,11 @@ func TestApplyNestedAndArray(t *testing.T) {
 	if m["siteId"] != "abc" {
 		t.Fatalf("%v", m)
 	}
+	page := m["page"].(map[string]any)
+	data := page["data"].([]any)
+	if len(data) != 2 {
+		t.Fatalf("data=%v", data)
+	}
 }
 
 func TestApplyEmpty(t *testing.T) {

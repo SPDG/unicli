@@ -57,6 +57,13 @@ API keys are never accepted on argv (they leak via process lists and shell histo
 
 See [AGENTS.md](./AGENTS.md). Short version: use `--json`, read `unicli schema`, treat mutations as gated.
 
+## Tests
+
+```bash
+make test          # unit tests with the race detector
+make live          # optional: hits a real console (needs UNIFI_HOST + UNIFI_API_KEY)
+```
+
 ## Non-goals (for now)
 
 - UniFi Site Manager cloud API
