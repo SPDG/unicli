@@ -56,6 +56,45 @@ func TestLiveDoctorAndLists(t *testing.T) {
 	if !strings.Contains(devs, "siteId") {
 		t.Fatalf("devices: %s", devs)
 	}
+	nets := run("network", "networks", "list", "--json", "--limit", "1")
+	if !strings.Contains(nets, "siteId") {
+		t.Fatalf("networks: %s", nets)
+	}
+	wifi := run("network", "wifi", "list", "--json", "--limit", "1")
+	if !strings.Contains(wifi, "siteId") {
+		t.Fatalf("wifi: %s", wifi)
+	}
+	if strings.Contains(strings.ToLower(wifi), "passphrase") {
+		t.Fatalf("wifi list should not include passphrases: %s", wifi)
+	}
+	zones := run("network", "firewall", "zones", "list", "--json", "--limit", "5")
+	if !strings.Contains(zones, "siteId") {
+		t.Fatalf("zones: %s", zones)
+	}
+	pols := run("network", "firewall", "policies", "list", "--json", "--limit", "1")
+	if !strings.Contains(pols, "siteId") {
+		t.Fatalf("policies: %s", pols)
+	}
+	acls := run("network", "acl", "list", "--json", "--limit", "1")
+	if !strings.Contains(acls, "siteId") {
+		t.Fatalf("acl: %s", acls)
+	}
+	dns := run("network", "dns", "list", "--json", "--limit", "1")
+	if !strings.Contains(dns, "siteId") {
+		t.Fatalf("dns: %s", dns)
+	}
+	wans := run("network", "wans", "--json", "--limit", "1")
+	if !strings.Contains(wans, "siteId") {
+		t.Fatalf("wans: %s", wans)
+	}
+	routes := run("network", "routes", "list", "--json")
+	if !strings.Contains(routes, "legacy-controller") {
+		t.Fatalf("routes: %s", routes)
+	}
+	fwd := run("network", "port-forwards", "list", "--json")
+	if !strings.Contains(fwd, "legacy-controller") {
+		t.Fatalf("port-forwards: %s", fwd)
+	}
 	protect := run("protect", "info", "--json")
 	if !strings.Contains(protect, "applicationVersion") {
 		t.Fatalf("protect: %s", protect)

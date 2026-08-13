@@ -6,9 +6,12 @@ test:
 vet:
 	go vet ./...
 
+VERSION ?= 0.0.0-dev
+LDFLAGS := -s -w -X github.com/SPDG/unicli/internal/cli.Version=$(VERSION)
+
 build:
-	go build -o bin/unicli ./cmd/unicli
-	go build -o bin/unicli-mcp ./cmd/unicli-mcp
+	go build -ldflags "$(LDFLAGS)" -o bin/unicli ./cmd/unicli
+	go build -ldflags "$(LDFLAGS)" -o bin/unicli-mcp ./cmd/unicli-mcp
 
 live:
 	go test -tags live -count=1 ./internal/live/...

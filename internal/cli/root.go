@@ -25,19 +25,24 @@ import (
 var Version = "0.0.0-dev"
 
 type rootOptions struct {
-	configPath      string
-	profile         string
-	host            string
-	site            string
-	insecure        bool
-	insecureSet     bool
-	jsonOut         bool
-	plainOut        bool
-	limit           int
-	offset          int
-	selectFields    string
-	allowMutations  bool
-	yes             bool
+	configPath     string
+	profile        string
+	host           string
+	site           string
+	insecure       bool
+	insecureSet    bool
+	jsonOut        bool
+	plainOut       bool
+	limit          int
+	offset         int
+	selectFields   string
+	allowMutations bool
+	yes            bool
+	includeSecrets bool
+	allPages       bool
+	filterName     string
+	filterVLAN     int
+	filterEnabled  string
 }
 
 var rootOpts rootOptions
@@ -58,12 +63,17 @@ func NewRoot() *cobra.Command {
 	root.PersistentFlags().StringVar(&rootOpts.site, "site", "", "Network site id (UUID)")
 	root.PersistentFlags().BoolVar(&rootOpts.insecure, "insecure", false, "skip TLS certificate verification")
 	root.PersistentFlags().BoolVar(&rootOpts.jsonOut, "json", false, "force JSON output")
-	root.PersistentFlags().BoolVar(&rootOpts.plainOut, "plain", false, "force plain text output")
+	root.PersistentFlags().BoolVar(&rootOpts.plainOut, "plain", false, "force human table output (even when stdout is not a TTY)")
 	root.PersistentFlags().IntVar(&rootOpts.limit, "limit", 25, "page size for list commands")
 	root.PersistentFlags().IntVar(&rootOpts.offset, "offset", 0, "page offset for list commands")
 	root.PersistentFlags().StringVar(&rootOpts.selectFields, "select", "", "comma-separated JSON fields to project")
 	root.PersistentFlags().BoolVar(&rootOpts.allowMutations, "allow-mutations", false, "permit state-changing commands")
 	root.PersistentFlags().BoolVar(&rootOpts.yes, "yes", false, "skip confirmation prompts for destructive mutations")
+	root.PersistentFlags().BoolVar(&rootOpts.includeSecrets, "include-secrets", false, "include WiFi passphrases and other secrets in output")
+	root.PersistentFlags().BoolVar(&rootOpts.allPages, "all", false, "fetch every page of a list (ignores --limit/--offset)")
+	root.PersistentFlags().StringVar(&rootOpts.filterName, "name", "", "substring filter on NAME for list commands")
+	root.PersistentFlags().IntVar(&rootOpts.filterVLAN, "vlan", -1, "filter networks/clients by VLAN ID")
+	root.PersistentFlags().StringVar(&rootOpts.filterEnabled, "enabled", "", "filter lists by enabled=true|false")
 
 	_ = root.RegisterFlagCompletionFunc("profile", completeProfileNames)
 
@@ -231,9 +241,16 @@ func newSchemaCmd() *cobra.Command {
 				"flags": map[string]any{
 					"allow_mutations": "required for state-changing commands",
 					"yes":             "skip confirmation for destructive mutations when non-interactive",
+					"json":            "force JSON (default when stdout is not a TTY)",
+					"plain":           "force human table output",
 					"select":          "comma-separated field projection for JSON output",
 					"limit":           "list page size",
 					"offset":          "list page offset",
+					"include_secrets": "include WiFi passphrases and other secrets (off by default)",
+					"all":             "fetch every page of a list",
+					"name":            "substring filter on NAME for list commands",
+					"vlan":            "filter by VLAN ID",
+					"enabled":         "filter lists by enabled=true|false",
 				},
 				"commands": []map[string]any{
 					{"name": "version"},
@@ -258,6 +275,104 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "network clients get"},
 					{"name": "network clients authorize", "mutation": true, "confirmation_required": true},
 					{"name": "network clients unauthorize", "mutation": true, "confirmation_required": true},
+					{"name": "network networks list"},
+					{"name": "network networks get"},
+					{"name": "network networks create", "mutation": true, "confirmation_required": true},
+					{"name": "network networks update", "mutation": true, "confirmation_required": true},
+					{"name": "network networks enable", "mutation": true, "confirmation_required": true},
+					{"name": "network networks disable", "mutation": true, "confirmation_required": true},
+					{"name": "network networks delete", "mutation": true, "confirmation_required": true},
+					{"name": "network networks references"},
+					{"name": "network wifi list"},
+					{"name": "network wifi get"},
+					{"name": "network wifi create", "mutation": true, "confirmation_required": true},
+					{"name": "network wifi update", "mutation": true, "confirmation_required": true},
+					{"name": "network wifi enable", "mutation": true, "confirmation_required": true},
+					{"name": "network wifi disable", "mutation": true, "confirmation_required": true},
+					{"name": "network wifi delete", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall zones list"},
+					{"name": "network firewall zones get"},
+					{"name": "network firewall zones create", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall zones update", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall zones delete", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall policies list"},
+					{"name": "network firewall policies get"},
+					{"name": "network firewall policies create", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall policies update", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall policies enable", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall policies disable", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall policies logging", "mutation": true, "confirmation_required": true},
+					{"name": "network firewall policies delete", "mutation": true, "confirmation_required": true},
+					{"name": "network acl list"},
+					{"name": "network acl get"},
+					{"name": "network acl create", "mutation": true, "confirmation_required": true},
+					{"name": "network acl update", "mutation": true, "confirmation_required": true},
+					{"name": "network acl delete", "mutation": true, "confirmation_required": true},
+					{"name": "network dns list"},
+					{"name": "network dns get"},
+					{"name": "network dns create", "mutation": true, "confirmation_required": true},
+					{"name": "network dns update", "mutation": true, "confirmation_required": true},
+					{"name": "network dns delete", "mutation": true, "confirmation_required": true},
+					{"name": "network vouchers list"},
+					{"name": "network vouchers get"},
+					{"name": "network vouchers create", "mutation": true, "confirmation_required": true},
+					{"name": "network vouchers delete", "mutation": true, "confirmation_required": true},
+					{"name": "network matching-lists list"},
+					{"name": "network matching-lists get"},
+					{"name": "network matching-lists create", "mutation": true, "confirmation_required": true},
+					{"name": "network matching-lists update", "mutation": true, "confirmation_required": true},
+					{"name": "network matching-lists delete", "mutation": true, "confirmation_required": true},
+					{"name": "network vpn servers"},
+					{"name": "network vpn tunnels"},
+					{"name": "network wans"},
+					{"name": "network dpi apps"},
+					{"name": "network dpi categories"},
+					{"name": "network radius"},
+					{"name": "network switching stacks"},
+					{"name": "network switching lags"},
+					{"name": "network switching mclag"},
+					{"name": "network tags"},
+					{"name": "network pending-devices"},
+					{"name": "network routes list", "legacy": true},
+					{"name": "network routes get", "legacy": true},
+					{"name": "network routes create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network routes update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network routes delete", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network traffic-routes list", "legacy": true},
+					{"name": "network traffic-routes get", "legacy": true},
+					{"name": "network traffic-routes create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network traffic-routes update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network traffic-routes delete", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network port-profiles list", "legacy": true},
+					{"name": "network port-profiles get", "legacy": true},
+					{"name": "network port-profiles create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network port-profiles update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network port-profiles delete", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network lists list", "legacy": true},
+					{"name": "network lists get", "legacy": true},
+					{"name": "network lists create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network lists update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network lists delete", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network port-forwards list", "legacy": true},
+					{"name": "network port-forwards get", "legacy": true},
+					{"name": "network port-forwards create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network port-forwards update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network port-forwards delete", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network ports list", "legacy": true},
+					{"name": "network ports set", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network dhcp reservations", "legacy": true},
+					{"name": "network dhcp reserve", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network health", "legacy": true},
+					{"name": "network dynamic-dns list", "legacy": true},
+					{"name": "network dynamic-dns get", "legacy": true},
+					{"name": "network dynamic-dns create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network dynamic-dns update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network dynamic-dns delete", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network client-groups list", "legacy": true},
+					{"name": "network client-groups get", "legacy": true},
+					{"name": "network client-groups create", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network client-groups update", "mutation": true, "confirmation_required": true, "legacy": true},
+					{"name": "network client-groups delete", "mutation": true, "confirmation_required": true, "legacy": true},
 					{"name": "protect info"},
 					{"name": "protect cameras list"},
 					{"name": "protect cameras get"},

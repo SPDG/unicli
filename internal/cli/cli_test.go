@@ -241,6 +241,82 @@ func TestNetworkDevicesListMock(t *testing.T) {
 	}
 }
 
+func TestNetworkClientsListTable(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/integration/v1/sites", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"site-1","internalReference":"default","name":"lab"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/clients", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":2,"totalCount":40,"data":[{"id":"c1","name":"pi-4","ipAddress":"192.168.5.221","macAddress":"dc:a6:32:da:e3:af","type":"WIRED"},{"id":"c2","name":"tasplug-07","ipAddress":"192.168.25.180","macAddress":"aa:bb:cc:dd:ee:ff","type":"WIRELESS"}]}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "network", "clients", "list", "--plain")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, "NAME") || !strings.Contains(out, "pi-4") || !strings.Contains(out, "MAC") {
+		t.Fatal(out)
+	}
+	if !strings.Contains(out, "showing 1-2 of 40") || !strings.Contains(out, "--offset 2") {
+		t.Fatalf("missing pagination footer: %s", out)
+	}
+	if strings.Contains(out, `"page"`) {
+		t.Fatalf("table path leaked JSON: %s", out)
+	}
+}
+
+func TestNetworkWifiGetRedactsSecrets(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/integration/v1/sites", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"site-1","internalReference":"default","name":"lab"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/wifi/broadcasts/wifi-1", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"wifi-1","name":"Office","presharedKeys":[{"vlanId":20,"passphrase":"super-secret"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/networks", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"net-1","name":"LAN","vlanId":1,"enabled":true}]}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "network", "wifi", "get", "wifi-1", "--json")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if strings.Contains(out, "super-secret") {
+		t.Fatalf("secret leaked: %s", out)
+	}
+	if !strings.Contains(out, "[redacted]") {
+		t.Fatalf("expected redaction: %s", out)
+	}
+
+	out, _, err = execCLI(t, "network", "wifi", "get", "wifi-1", "--json", "--include-secrets")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, "super-secret") {
+		t.Fatalf("expected secret with flag: %s", out)
+	}
+
+	out, _, err = execCLI(t, "network", "networks", "list", "--json")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, `"LAN"`) {
+		t.Fatal(out)
+	}
+}
+
 func TestRestartBlockedViaCLI(t *testing.T) {
 	clearUnifiEnv(t)
 	t.Setenv("UNIFI_HOST", "https://example.invalid")
@@ -263,5 +339,124 @@ func TestCompleteProfileNames(t *testing.T) {
 	names, _ := completeProfileNames(nil, nil, "duk")
 	if len(names) != 1 || names[0] != "dukielska" {
 		t.Fatalf("%v", names)
+	}
+}
+
+func TestNetworkGetByNameAndEnableBlocked(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/integration/v1/sites", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"site-1","internalReference":"default","name":"lab"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/wifi/broadcasts", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"wifi-1","name":"Office","enabled":true,"type":"STANDARD"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/wifi/broadcasts/wifi-1", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"wifi-1","name":"Office","enabled":true}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "network", "wifi", "get", "Office", "--json")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, `"wifi-1"`) {
+		t.Fatal(out)
+	}
+
+	_, _, err = execCLI(t, "network", "wifi", "disable", "Office", "--json")
+	if exitCode(err) != exitcode.MutationBlocked {
+		t.Fatalf("code=%d err=%v", exitCode(err), err)
+	}
+}
+
+func TestNetworkCreateFromJSON(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/integration/v1/sites", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"site-1","internalReference":"default","name":"lab"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/networks", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":"net-new","name":"IoT","vlanId":30}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "network", "networks", "create", "--json", "--allow-mutations", "--yes",
+		"--from-json", `{"name":"IoT","vlanId":30,"management":"UNMANAGED","enabled":true}`)
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, `"net-new"`) {
+		t.Fatal(out)
+	}
+}
+
+func TestLegacyRoutesList(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/integration/v1/sites", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"site-1","internalReference":"default","name":"lab"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/api/s/default/rest/routing", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[{"_id":"r1","name":"GLUCHOW-217","static-route_network":"192.168.6.0/24","static-route_nexthop":"192.168.5.221","enabled":true}]}`))
+	})
+	mux.HandleFunc("/proxy/network/api/s/default/rest/portforward", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[{"_id":"pf1","name":"NAS HTTPS","enabled":true,"dst_port":"443","fwd":"10.5.67.10","proto":"tcp"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/api/s/default/stat/device", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[{"_id":"sw1","name":"MINI RACK","mac":"aa:bb:cc:dd:ee:ff","port_table":[{"port_idx":2,"name":"PDU","up":true,"speed":1000,"poe_mode":"auto","portconf_id":"prof1"}]}]}`))
+	})
+	mux.HandleFunc("/proxy/network/v2/api/site/default/firewall-policies", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"_id":"pol1","name":"Allow PDM to hive-01","index":10000,"action":"ALLOW","enabled":true,"hits":12,"predefined":false}]`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "network", "routes", "list", "--json")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, `"legacy-controller"`) || !strings.Contains(out, `"GLUCHOW-217"`) {
+		t.Fatal(out)
+	}
+
+	out, _, err = execCLI(t, "network", "port-forwards", "list", "--json")
+	if err != nil {
+		t.Fatalf("port-forwards %v %s", err, out)
+	}
+	if !strings.Contains(out, `"NAS HTTPS"`) {
+		t.Fatal(out)
+	}
+
+	out, _, err = execCLI(t, "network", "ports", "list", "--json")
+	if err != nil {
+		t.Fatalf("ports %v %s", err, out)
+	}
+	if !strings.Contains(out, `"MINI RACK"`) || !strings.Contains(out, `"PDU"`) {
+		t.Fatal(out)
+	}
+
+	out, _, err = execCLI(t, "network", "firewall", "policies", "list", "--json")
+	if err != nil {
+		t.Fatalf("policies %v %s", err, out)
+	}
+	if !strings.Contains(out, `"Allow PDM to hive-01"`) || !strings.Contains(out, `"pol1"`) {
+		t.Fatal(out)
 	}
 }

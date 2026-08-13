@@ -20,7 +20,54 @@ func newNetworkCmd() *cobra.Command {
 	cmd.AddCommand(newNetworkDevicesCmd())
 	cmd.AddCommand(newNetworkPortsCmd())
 	cmd.AddCommand(newNetworkClientsCmd())
+	cmd.AddCommand(newNetworkNetworksCmd())
+	cmd.AddCommand(newNetworkWifiCmd())
+	cmd.AddCommand(newNetworkFirewallCmd())
+	cmd.AddCommand(newNetworkACLCmd())
+	cmd.AddCommand(newNetworkDNSCmd())
+	cmd.AddCommand(newNetworkVouchersCmd())
+	cmd.AddCommand(newNetworkMatchingCmd())
+	cmd.AddCommand(newNetworkVPNCmd())
+	cmd.AddCommand(newNetworkWANsCmd())
+	cmd.AddCommand(newNetworkDPICmd())
+	cmd.AddCommand(newNetworkRadiusCmd())
+	cmd.AddCommand(newNetworkSwitchingCmd())
+	cmd.AddCommand(newNetworkTagsCmd())
+	cmd.AddCommand(newNetworkPendingCmd())
+	cmd.AddCommand(newNetworkRoutesCmd())
+	cmd.AddCommand(newNetworkTrafficRoutesCmd())
+	cmd.AddCommand(newNetworkPortProfilesCmd())
+	cmd.AddCommand(newNetworkListsCmd())
+	cmd.AddCommand(newNetworkPortForwardsCmd())
+	cmd.AddCommand(newNetworkDHCPCmd())
+	cmd.AddCommand(newNetworkHealthCmd())
+	cmd.AddCommand(newNetworkDynamicDNSCmd())
+	cmd.AddCommand(newNetworkClientGroupsCmd())
 	return cmd
+}
+
+func withLegacySite(cmd *cobra.Command, fn func(api *network.API, slug string) error) error {
+	api, preferredSite, err := openNetwork()
+	if err != nil {
+		return err
+	}
+	slug, err := api.LegacySiteSlug(cmd.Context(), preferredSite)
+	if err != nil {
+		return mapAPIErr(err)
+	}
+	return fn(api, slug)
+}
+
+func withNetworkSite(cmd *cobra.Command, fn func(api *network.API, siteID string) error) error {
+	api, preferredSite, err := openNetwork()
+	if err != nil {
+		return err
+	}
+	siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+	if err != nil {
+		return mapAPIErr(err)
+	}
+	return fn(api, siteID)
 }
 
 func openNetwork() (*network.API, string, error) {
@@ -69,15 +116,20 @@ func newNetworkSitesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			page, err := api.Sites(cmd.Context(), rootOpts.offset, rootOpts.limit)
+			page, err := collectPage(func(offset, limit int) (*network.Page[network.Site], error) {
+				return api.Sites(cmd.Context(), offset, limit)
+			})
 			if err != nil {
 				return mapAPIErr(err)
 			}
-			return printValue(cmd, page, func() {
-				for _, s := range page.Data {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", s.ID, s.InternalRef, s.Name)
+			rows := make([][]string, 0, len(page.Data))
+			for _, s := range page.Data {
+				if !matchName(s.Name, rootOpts.filterName) && !matchName(s.InternalRef, rootOpts.filterName) {
+					continue
 				}
-			})
+				rows = append(rows, []string{s.Name, s.InternalRef, s.ID})
+			}
+			return printList(cmd, page, []string{"NAME", "REF", "ID"}, rows, page.Offset, len(rows), page.TotalCount)
 		},
 	})
 	return cmd
@@ -100,16 +152,21 @@ func newNetworkDevicesCmd() *cobra.Command {
 			if err != nil {
 				return mapAPIErr(err)
 			}
-			page, err := api.Devices(cmd.Context(), siteID, rootOpts.offset, rootOpts.limit)
+			page, err := collectPage(func(offset, limit int) (*network.Page[network.Device], error) {
+				return api.Devices(cmd.Context(), siteID, offset, limit)
+			})
 			if err != nil {
 				return mapAPIErr(err)
 			}
 			out := map[string]any{"siteId": siteID, "page": page}
-			return printValue(cmd, out, func() {
-				for _, d := range page.Data {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\t%s\n", d.ID, d.Name, d.Model, d.IPAddress, d.State)
+			rows := make([][]string, 0, len(page.Data))
+			for _, d := range page.Data {
+				if !matchName(d.Name, rootOpts.filterName) && !matchName(d.Model, rootOpts.filterName) {
+					continue
 				}
-			})
+				rows = append(rows, []string{d.Name, d.Model, d.IPAddress, d.State, d.ID})
+			}
+			return printList(cmd, out, []string{"NAME", "MODEL", "IP", "STATE", "ID"}, rows, page.Offset, len(rows), page.TotalCount)
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
@@ -191,6 +248,8 @@ func newNetworkPortsCmd() *cobra.Command {
 		Use:   "ports",
 		Short: "Switch port commands",
 	}
+	cmd.AddCommand(newPortsListCmd())
+	cmd.AddCommand(newPortsSetCmd())
 	cmd.AddCommand(&cobra.Command{
 		Use:   "cycle <device-id> <port-idx>",
 		Short: "PoE power-cycle a switch port (mutation)",
@@ -244,16 +303,21 @@ func newNetworkClientsCmd() *cobra.Command {
 			if err != nil {
 				return mapAPIErr(err)
 			}
-			page, err := api.Clients(cmd.Context(), siteID, rootOpts.offset, rootOpts.limit)
+			page, err := collectPage(func(offset, limit int) (*network.Page[network.Client], error) {
+				return api.Clients(cmd.Context(), siteID, offset, limit)
+			})
 			if err != nil {
 				return mapAPIErr(err)
 			}
 			out := map[string]any{"siteId": siteID, "page": page}
-			return printValue(cmd, out, func() {
-				for _, c := range page.Data {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\n", c.ID, c.Name, c.IPAddress, c.MacAddress)
+			rows := make([][]string, 0, len(page.Data))
+			for _, c := range page.Data {
+				if !matchName(c.Name, rootOpts.filterName) && !matchName(c.IPAddress, rootOpts.filterName) && !matchName(c.MacAddress, rootOpts.filterName) {
+					continue
 				}
-			})
+				rows = append(rows, []string{c.Name, c.IPAddress, c.MacAddress, c.Type, c.ID})
+			}
+			return printList(cmd, out, []string{"NAME", "IP", "MAC", "TYPE", "ID"}, rows, page.Offset, len(rows), page.TotalCount)
 		},
 	})
 	cmd.AddCommand(&cobra.Command{

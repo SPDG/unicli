@@ -82,11 +82,11 @@ func newProtectCamerasCmd() *cobra.Command {
 			}
 			page := cams[start:end]
 			out := map[string]any{"totalCount": total, "count": len(page), "cameras": page}
-			return printValue(cmd, out, func() {
-				for _, c := range page {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\t%s\n", c.ID, c.Name, c.ModelKey, c.State)
-				}
-			})
+			rows := make([][]string, 0, len(page))
+			for _, c := range page {
+				rows = append(rows, []string{c.Name, c.ModelKey, c.State, c.ID})
+			}
+			return printList(cmd, out, []string{"NAME", "MODEL", "STATE", "ID"}, rows, start, len(page), total)
 		},
 	})
 	cmd.AddCommand(&cobra.Command{

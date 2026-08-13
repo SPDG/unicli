@@ -9,6 +9,7 @@ import (
 	"github.com/SPDG/unicli/internal/config"
 	"github.com/SPDG/unicli/internal/credstore"
 	"github.com/SPDG/unicli/internal/exitcode"
+	"github.com/SPDG/unicli/internal/output"
 )
 
 func newProfileCmd() *cobra.Command {
@@ -48,16 +49,19 @@ func newProfileListCmd() *cobra.Command {
 			}
 			return printValue(cmd, map[string]any{"current": cfg.Current, "profiles": rows}, func() {
 				if len(rows) == 0 {
-					fmt.Fprintln(cmd.OutOrStdout(), "(no profiles)")
+					fmt.Fprintln(cmd.OutOrStdout(), "0 items")
 					return
 				}
+				table := make([][]string, 0, len(rows))
 				for _, r := range rows {
-					mark := " "
+					cur := ""
 					if r.Current {
-						mark = "*"
+						cur = "yes"
 					}
-					fmt.Fprintf(cmd.OutOrStdout(), "%s %s\t%s\tinsecure=%v\n", mark, r.Name, r.Host, r.Insecure)
+					table = append(table, []string{r.Name, r.Host, yesNo(r.Insecure), r.Site, cur})
 				}
+				_ = output.WriteTable(cmd.OutOrStdout(), []string{"NAME", "HOST", "INSECURE", "SITE", "CURRENT"}, table)
+				fmt.Fprintln(cmd.OutOrStdout(), output.PageFooter(0, len(rows), len(rows)))
 			})
 		},
 	}

@@ -72,15 +72,15 @@ func newAccessDoorsCmd() *cobra.Command {
 				return mapAPIErr(err)
 			}
 			out := map[string]any{"count": len(doors), "doors": doors}
-			return printValue(cmd, out, func() {
-				for _, d := range doors {
-					name := d.Name
-					if name == "" {
-						name = d.FullName
-					}
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", d.ID, name)
+			rows := make([][]string, 0, len(doors))
+			for _, d := range doors {
+				name := d.Name
+				if name == "" {
+					name = d.FullName
 				}
-			})
+				rows = append(rows, []string{name, d.ID})
+			}
+			return printList(cmd, out, []string{"NAME", "ID"}, rows, 0, len(doors), len(doors))
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
@@ -143,15 +143,15 @@ func newAccessUsersCmd() *cobra.Command {
 				return mapAPIErr(err)
 			}
 			out := map[string]any{"count": len(users), "users": users}
-			return printValue(cmd, out, func() {
-				for _, u := range users {
-					name := u.Name
-					if name == "" {
-						name = strings.TrimSpace(u.FirstName + " " + u.LastName)
-					}
-					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", u.ID, name, u.Email)
+			rows := make([][]string, 0, len(users))
+			for _, u := range users {
+				name := u.Name
+				if name == "" {
+					name = strings.TrimSpace(u.FirstName + " " + u.LastName)
 				}
-			})
+				rows = append(rows, []string{name, u.Email, u.ID})
+			}
+			return printList(cmd, out, []string{"NAME", "EMAIL", "ID"}, rows, 0, len(users), len(users))
 		},
 	})
 	cmd.AddCommand(&cobra.Command{

@@ -34,8 +34,11 @@ func TestIsMutation(t *testing.T) {
 	if IsMutation([]string{"network", "devices", "list"}) {
 		t.Fatal("list is not a mutation")
 	}
-	if !IsMutation([]string{"access", "doors", "unlock", "id"}) {
-		t.Fatal("unlock")
+	if !IsMutation([]string{"network", "wifi", "create"}) {
+		t.Fatal("create")
+	}
+	if IsMutation([]string{"network", "wifi", "list"}) {
+		t.Fatal("list is not a mutation")
 	}
 }
 

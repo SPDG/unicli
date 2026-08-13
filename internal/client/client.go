@@ -57,9 +57,29 @@ func (c *Client) PutJSON(ctx context.Context, absPath string, payload any, dest 
 	return c.writeJSON(ctx, http.MethodPut, absPath, payload, dest)
 }
 
+func (c *Client) PutAppJSON(ctx context.Context, app, path string, payload any, dest any) error {
+	return c.writeJSON(ctx, http.MethodPut, integrationPath(app, path), payload, dest)
+}
+
+func (c *Client) PatchJSON(ctx context.Context, app, path string, payload any, dest any) error {
+	return c.writeJSON(ctx, http.MethodPatch, integrationPath(app, path), payload, dest)
+}
+
+func (c *Client) DeleteJSON(ctx context.Context, app, path string, query url.Values) error {
+	return c.roundTrip(ctx, http.MethodDelete, integrationPath(app, path), query, nil, nil)
+}
+
 // GetPathJSON GETs an absolute path on the console (e.g. /proxy/access/api/v2/doors).
 func (c *Client) GetPathJSON(ctx context.Context, absPath string, query url.Values, dest any) error {
 	return c.roundTrip(ctx, http.MethodGet, absPath, query, nil, dest)
+}
+
+func (c *Client) PostPathJSON(ctx context.Context, absPath string, payload any, dest any) error {
+	return c.writeJSON(ctx, http.MethodPost, absPath, payload, dest)
+}
+
+func (c *Client) DeletePathJSON(ctx context.Context, absPath string, query url.Values) error {
+	return c.roundTrip(ctx, http.MethodDelete, absPath, query, nil, nil)
 }
 
 func (c *Client) writeJSON(ctx context.Context, method, absPath string, payload any, dest any) error {
