@@ -82,7 +82,7 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 
 Some commands fill Integration-API gaps via the local controller REST/v2 API. The CLI surface stays the same; JSON may include `"backend":"legacy-controller"` so agents can tell. Prefer Integration resources when both exist (VLANs, WiFi broadcasts, matching-lists). Firewall policy **list/get** uses v2 so every policy has an id and hit counters (Integration list often omits custom UUIDs).
 
-Mutations need `--allow-mutations` and `--yes` when non-interactive. Create/update of complex DTOs (WiFi, firewall policy, DHCP) use `--from-json` (object, file, or `-`). Do not put passphrases or API keys on argv. `enable`/`disable` GET the object, drop read-only fields, and PUT. WiFi output still redacts secrets unless `--include-secrets`.
+Mutations need `--allow-mutations` and `--yes` when non-interactive. Create/update of complex DTOs (WiFi, firewall policy, DHCP) use `--from-json` (object, file, or `-`). Do not put passphrases or API keys on argv. `enable`/`disable` GET the object, drop read-only fields, and PUT. WiFi passphrases and Protect RTSPS tokens stay redacted unless `--include-secrets`. `protect cameras snapshot` writes JPEG to `--output` (or stdout with `-o -`).
 
 ## Exit codes
 
