@@ -54,6 +54,19 @@ type Client struct {
 	ConnectedAt string `json:"connectedAt"`
 }
 
+type DeviceStatistics struct {
+	UptimeSec            int64   `json:"uptimeSec"`
+	CPUUtilizationPct    float64 `json:"cpuUtilizationPct"`
+	MemoryUtilizationPct float64 `json:"memoryUtilizationPct"`
+	LoadAverage1Min      float64 `json:"loadAverage1Min"`
+	LoadAverage5Min      float64 `json:"loadAverage5Min"`
+	LoadAverage15Min     float64 `json:"loadAverage15Min"`
+}
+
+type actionRequest struct {
+	Action string `json:"action"`
+}
+
 func (a *API) Info(ctx context.Context) (*Info, error) {
 	var out Info
 	if err := a.c.GetJSON(ctx, "network", "info", nil, &out); err != nil {
@@ -104,6 +117,36 @@ func (a *API) Client(ctx context.Context, siteID, clientID string) (*Client, err
 		return nil, err
 	}
 	return &out, nil
+}
+
+func (a *API) DeviceStatistics(ctx context.Context, siteID, deviceID string) (*DeviceStatistics, error) {
+	var out DeviceStatistics
+	path := "sites/" + url.PathEscape(siteID) + "/devices/" + url.PathEscape(deviceID) + "/statistics/latest"
+	if err := a.c.GetJSON(ctx, "network", path, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (a *API) RestartDevice(ctx context.Context, siteID, deviceID string) error {
+	path := "sites/" + url.PathEscape(siteID) + "/devices/" + url.PathEscape(deviceID) + "/actions"
+	return a.c.PostJSON(ctx, "network", path, actionRequest{Action: "RESTART"}, nil)
+}
+
+func (a *API) PowerCyclePort(ctx context.Context, siteID, deviceID string, portIdx int) error {
+	path := "sites/" + url.PathEscape(siteID) + "/devices/" + url.PathEscape(deviceID) +
+		"/interfaces/ports/" + url.PathEscape(strconv.Itoa(portIdx)) + "/actions"
+	return a.c.PostJSON(ctx, "network", path, actionRequest{Action: "POWER_CYCLE"}, nil)
+}
+
+func (a *API) AuthorizeGuest(ctx context.Context, siteID, clientID string) error {
+	path := "sites/" + url.PathEscape(siteID) + "/clients/" + url.PathEscape(clientID) + "/actions"
+	return a.c.PostJSON(ctx, "network", path, actionRequest{Action: "AUTHORIZE_GUEST_ACCESS"}, nil)
+}
+
+func (a *API) UnauthorizeGuest(ctx context.Context, siteID, clientID string) error {
+	path := "sites/" + url.PathEscape(siteID) + "/clients/" + url.PathEscape(clientID) + "/actions"
+	return a.c.PostJSON(ctx, "network", path, actionRequest{Action: "UNAUTHORIZE_GUEST_ACCESS"}, nil)
 }
 
 func pageQuery(offset, limit int) url.Values {

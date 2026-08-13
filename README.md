@@ -6,7 +6,7 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-Phase 1 (Network MVP): multi-gateway profiles, env overrides, `doctor`, and read-only Network commands.
+Phase 2: Network read + gated mutations (`restart`, port `POWER_CYCLE`, guest authorize), `--select`, goreleaser.
 
 Protect and Access come next.
 
@@ -28,20 +28,27 @@ export UNIFI_INSECURE=1   # lab / self-signed
 
 unicli doctor --json
 unicli network info --json
-unicli network devices list --json
-unicli network clients list --json --limit 50
+unicli network devices list --json --select siteId,page
+unicli network devices stats <device-id> --json
+# Mutations are gated:
+unicli network devices restart <id>              # blocked without --allow-mutations
+unicli network devices restart <id> --allow-mutations --yes
+unicli network ports cycle <device-id> <port> --allow-mutations --yes
 
 # Multiple gateways via named profiles
 printf %s "$UNIFI_API_KEY" | unicli auth login --profile home --host https://192.168.1.1 --insecure
-unicli profile set office https://unifi.office.example
-printf %s "$OFFICE_KEY" | unicli auth login --profile office
-unicli profile use office
-unicli --profile home network sites list --json
+unicli profile use home
 ```
 
 Resolution order: CLI flags → env (`UNIFI_HOST`, `UNIFI_API_KEY`, `UNIFI_PROFILE`, `UNIFI_INSECURE`, `UNIFI_SITE`) → config `current` profile.
 
 API keys are never accepted on argv (they leak via process lists and shell history). Keys for profiles live in `~/.config/unicli/credentials.json` (mode `0600`).
+
+## Safety
+
+- Read-only by default.
+- Mutations require `--allow-mutations`.
+- Destructive mutations also require interactive confirmation, or `--yes` when stdin is not a TTY.
 
 ## Agent usage
 

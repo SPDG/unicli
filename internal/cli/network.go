@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,7 @@ func newNetworkCmd() *cobra.Command {
 	cmd.AddCommand(newNetworkInfoCmd())
 	cmd.AddCommand(newNetworkSitesCmd())
 	cmd.AddCommand(newNetworkDevicesCmd())
+	cmd.AddCommand(newNetworkPortsCmd())
 	cmd.AddCommand(newNetworkClientsCmd())
 	return cmd
 }
@@ -132,6 +134,96 @@ func newNetworkDevicesCmd() *cobra.Command {
 			})
 		},
 	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "stats <device-id>",
+		Short: "Get latest device statistics",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			api, preferredSite, err := openNetwork()
+			if err != nil {
+				return err
+			}
+			siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			stats, err := api.DeviceStatistics(cmd.Context(), siteID, args[0])
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			return printValue(cmd, stats, nil)
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "restart <device-id>",
+		Short: "Restart a device (mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireMutations("network devices restart"); err != nil {
+				return err
+			}
+			if err := requireConfirm(fmt.Sprintf("Restart device %s?", args[0])); err != nil {
+				return err
+			}
+			api, preferredSite, err := openNetwork()
+			if err != nil {
+				return err
+			}
+			siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			if err := api.RestartDevice(cmd.Context(), siteID, args[0]); err != nil {
+				return mapAPIErr(err)
+			}
+			return printValue(cmd, map[string]any{
+				"action": "RESTART", "deviceId": args[0], "siteId": siteID, "status": "ok",
+			}, func() {
+				fmt.Fprintf(cmd.OutOrStdout(), "restart requested for %s\n", args[0])
+			})
+		},
+	})
+	return cmd
+}
+
+func newNetworkPortsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ports",
+		Short: "Switch port commands",
+	}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "cycle <device-id> <port-idx>",
+		Short: "PoE power-cycle a switch port (mutation)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireMutations("network ports cycle"); err != nil {
+				return err
+			}
+			portIdx, err := strconv.Atoi(args[1])
+			if err != nil || portIdx < 0 {
+				return exitf(exitcode.Usage, "invalid port index %q", args[1])
+			}
+			if err := requireConfirm(fmt.Sprintf("Power-cycle port %d on device %s?", portIdx, args[0])); err != nil {
+				return err
+			}
+			api, preferredSite, err := openNetwork()
+			if err != nil {
+				return err
+			}
+			siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			if err := api.PowerCyclePort(cmd.Context(), siteID, args[0], portIdx); err != nil {
+				return mapAPIErr(err)
+			}
+			return printValue(cmd, map[string]any{
+				"action": "POWER_CYCLE", "deviceId": args[0], "portIdx": portIdx, "siteId": siteID, "status": "ok",
+			}, func() {
+				fmt.Fprintf(cmd.OutOrStdout(), "power-cycle requested for %s port %d\n", args[0], portIdx)
+			})
+		},
+	})
 	return cmd
 }
 
@@ -184,6 +276,60 @@ func newNetworkClientsCmd() *cobra.Command {
 			return printValue(cmd, cl, func() {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", cl.ID, cl.Name, cl.IPAddress)
 			})
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "authorize <client-id>",
+		Short: "Authorize guest access for a client (mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireMutations("network clients authorize"); err != nil {
+				return err
+			}
+			if err := requireConfirm(fmt.Sprintf("Authorize guest access for client %s?", args[0])); err != nil {
+				return err
+			}
+			api, preferredSite, err := openNetwork()
+			if err != nil {
+				return err
+			}
+			siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			if err := api.AuthorizeGuest(cmd.Context(), siteID, args[0]); err != nil {
+				return mapAPIErr(err)
+			}
+			return printValue(cmd, map[string]any{
+				"action": "AUTHORIZE_GUEST_ACCESS", "clientId": args[0], "siteId": siteID, "status": "ok",
+			}, nil)
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "unauthorize <client-id>",
+		Short: "Unauthorize guest access for a client (mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireMutations("network clients unauthorize"); err != nil {
+				return err
+			}
+			if err := requireConfirm(fmt.Sprintf("Unauthorize guest access for client %s?", args[0])); err != nil {
+				return err
+			}
+			api, preferredSite, err := openNetwork()
+			if err != nil {
+				return err
+			}
+			siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			if err := api.UnauthorizeGuest(cmd.Context(), siteID, args[0]); err != nil {
+				return mapAPIErr(err)
+			}
+			return printValue(cmd, map[string]any{
+				"action": "UNAUTHORIZE_GUEST_ACCESS", "clientId": args[0], "siteId": siteID, "status": "ok",
+			}, nil)
 		},
 	})
 	return cmd

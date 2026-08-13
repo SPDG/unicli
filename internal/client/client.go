@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -46,17 +47,33 @@ func New(host, apiKey string, insecure bool) (*Client, error) {
 }
 
 func (c *Client) GetJSON(ctx context.Context, app, path string, query url.Values, dest any) error {
-	body, status, err := c.do(ctx, http.MethodGet, app, path, query, nil)
+	return c.roundTrip(ctx, http.MethodGet, app, path, query, nil, dest)
+}
+
+func (c *Client) PostJSON(ctx context.Context, app, path string, payload any, dest any) error {
+	var body io.Reader
+	if payload != nil {
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		body = bytes.NewReader(raw)
+	}
+	return c.roundTrip(ctx, http.MethodPost, app, path, nil, body, dest)
+}
+
+func (c *Client) roundTrip(ctx context.Context, method, app, path string, query url.Values, reqBody io.Reader, dest any) error {
+	raw, status, err := c.do(ctx, method, app, path, query, reqBody)
 	if err != nil {
 		return err
 	}
 	if status < 200 || status >= 300 {
-		return APIError{Status: status, Body: body}
+		return APIError{Status: status, Body: raw}
 	}
-	if dest == nil {
+	if dest == nil || len(raw) == 0 {
 		return nil
 	}
-	if err := json.Unmarshal(body, dest); err != nil {
+	if err := json.Unmarshal(raw, dest); err != nil {
 		return fmt.Errorf("decode response: %w", err)
 	}
 	return nil
@@ -77,6 +94,9 @@ func (c *Client) do(ctx context.Context, method, app, path string, query url.Val
 	}
 	req.Header.Set("X-API-KEY", c.apiKey)
 	req.Header.Set("Accept", "application/json")
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

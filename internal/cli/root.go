@@ -16,22 +16,26 @@ import (
 	"github.com/SPDG/unicli/internal/exitcode"
 	"github.com/SPDG/unicli/internal/network"
 	"github.com/SPDG/unicli/internal/output"
+	"github.com/SPDG/unicli/internal/selectfields"
 )
 
 // Version is set at build time via -ldflags when releasing.
 var Version = "0.0.0-dev"
 
 type rootOptions struct {
-	configPath string
-	profile    string
-	host       string
-	site       string
-	insecure   bool
-	insecureSet bool
-	jsonOut    bool
-	plainOut   bool
-	limit      int
-	offset     int
+	configPath      string
+	profile         string
+	host            string
+	site            string
+	insecure        bool
+	insecureSet     bool
+	jsonOut         bool
+	plainOut        bool
+	limit           int
+	offset          int
+	selectFields    string
+	allowMutations  bool
+	yes             bool
 }
 
 var rootOpts rootOptions
@@ -54,6 +58,9 @@ func NewRoot() *cobra.Command {
 	root.PersistentFlags().BoolVar(&rootOpts.plainOut, "plain", false, "force plain text output")
 	root.PersistentFlags().IntVar(&rootOpts.limit, "limit", 25, "page size for list commands")
 	root.PersistentFlags().IntVar(&rootOpts.offset, "offset", 0, "page offset for list commands")
+	root.PersistentFlags().StringVar(&rootOpts.selectFields, "select", "", "comma-separated JSON fields to project")
+	root.PersistentFlags().BoolVar(&rootOpts.allowMutations, "allow-mutations", false, "permit state-changing commands")
+	root.PersistentFlags().BoolVar(&rootOpts.yes, "yes", false, "skip confirmation prompts for destructive mutations")
 
 	root.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		rootOpts.insecureSet = cmd.Flags().Changed("insecure")
@@ -161,14 +168,19 @@ func format() output.Format {
 }
 
 func printValue(cmd *cobra.Command, v any, plain func()) error {
-	if output.WantJSON(format(), os.Stdout) {
-		return output.WriteJSON(cmd.OutOrStdout(), v)
+	projected, err := selectfields.Apply(v, rootOpts.selectFields)
+	if err != nil {
+		return exitf(exitcode.Usage, "select: %v", err)
+	}
+	if output.WantJSON(format(), os.Stdout) || rootOpts.selectFields != "" {
+		// Field projection is JSON-oriented; always emit JSON when --select is set.
+		return output.WriteJSON(cmd.OutOrStdout(), projected)
 	}
 	if plain != nil {
 		plain()
 		return nil
 	}
-	return output.WriteJSON(cmd.OutOrStdout(), v)
+	return output.WriteJSON(cmd.OutOrStdout(), projected)
 }
 
 func newVersionCmd() *cobra.Command {
@@ -208,13 +220,36 @@ func newSchemaCmd() *cobra.Command {
 					"input_required":   exitcode.InputRequired,
 					"cancelled":        exitcode.Cancelled,
 				},
-				"commands": []string{
-					"version", "schema", "doctor",
-					"auth login", "auth status", "auth logout",
-					"profile list", "profile use", "profile show", "profile set", "profile delete",
-					"network info", "network sites list",
-					"network devices list", "network devices get",
-					"network clients list", "network clients get",
+				"flags": map[string]any{
+					"allow_mutations": "required for state-changing commands",
+					"yes":             "skip confirmation for destructive mutations when non-interactive",
+					"select":          "comma-separated field projection for JSON output",
+					"limit":           "list page size",
+					"offset":          "list page offset",
+				},
+				"commands": []map[string]any{
+					{"name": "version"},
+					{"name": "schema"},
+					{"name": "doctor"},
+					{"name": "auth login"},
+					{"name": "auth status"},
+					{"name": "auth logout"},
+					{"name": "profile list"},
+					{"name": "profile use"},
+					{"name": "profile show"},
+					{"name": "profile set"},
+					{"name": "profile delete"},
+					{"name": "network info"},
+					{"name": "network sites list"},
+					{"name": "network devices list"},
+					{"name": "network devices get"},
+					{"name": "network devices stats"},
+					{"name": "network devices restart", "mutation": true, "confirmation_required": true},
+					{"name": "network ports cycle", "mutation": true, "confirmation_required": true},
+					{"name": "network clients list"},
+					{"name": "network clients get"},
+					{"name": "network clients authorize", "mutation": true, "confirmation_required": true},
+					{"name": "network clients unauthorize", "mutation": true, "confirmation_required": true},
 				},
 			}
 			return output.WriteJSON(cmd.OutOrStdout(), schema)
