@@ -16,6 +16,7 @@ import (
 	"github.com/SPDG/unicli/internal/exitcode"
 	"github.com/SPDG/unicli/internal/network"
 	"github.com/SPDG/unicli/internal/output"
+	"github.com/SPDG/unicli/internal/protect"
 	"github.com/SPDG/unicli/internal/selectfields"
 )
 
@@ -72,6 +73,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newNetworkCmd())
+	root.AddCommand(newProtectCmd())
 	return root
 }
 
@@ -250,6 +252,9 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "network clients get"},
 					{"name": "network clients authorize", "mutation": true, "confirmation_required": true},
 					{"name": "network clients unauthorize", "mutation": true, "confirmation_required": true},
+					{"name": "protect info"},
+					{"name": "protect cameras list"},
+					{"name": "protect cameras get"},
 				},
 			}
 			return output.WriteJSON(cmd.OutOrStdout(), schema)
@@ -294,6 +299,13 @@ func newDoctorCmd() *cobra.Command {
 				return mapAPIErr(err)
 			}
 			report["network_version"] = info.ApplicationVersion
+
+			if pinfo, perr := protect.New(c).Info(cmd.Context()); perr == nil {
+				report["protect_version"] = pinfo.ApplicationVersion
+			} else {
+				report["protect_error"] = perr.Error()
+			}
+
 			return printValue(cmd, report, func() {
 				fmt.Fprintf(cmd.OutOrStdout(), "ok host=%s profile=%s network=%s\n", res.Host, res.Profile, info.ApplicationVersion)
 			})

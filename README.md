@@ -6,9 +6,9 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-Phase 2: Network read + gated mutations (`restart`, port `POWER_CYCLE`, guest authorize), `--select`, goreleaser.
+Phase 3 started: Protect `info` + `cameras list|get` against the live Integration API.
 
-Protect and Access come next.
+Access comes next.
 
 ## Install
 
@@ -34,8 +34,8 @@ unicli network devices stats <device-id> --json
 unicli network devices restart <id>              # blocked without --allow-mutations
 unicli network devices restart <id> --allow-mutations --yes
 unicli network ports cycle <device-id> <port> --allow-mutations --yes
-
-# Multiple gateways via named profiles
+unicli protect info --json
+unicli protect cameras list --json --select totalCount,cameras
 printf %s "$UNIFI_API_KEY" | unicli auth login --profile home --host https://192.168.1.1 --insecure
 unicli profile use home
 ```
