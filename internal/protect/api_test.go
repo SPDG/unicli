@@ -21,7 +21,13 @@ func TestCameras(t *testing.T) {
 		})
 	})
 	mux.HandleFunc("/proxy/protect/integration/v1/cameras/cam-1", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(Camera{ID: "cam-1", Name: "vestibule", State: "CONNECTED"})
+		if r.Method == http.MethodPatch {
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "cam-1", "hdrType": "off", "name": "vestibule"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "cam-1", "name": "vestibule", "state": "CONNECTED", "featureFlags": map[string]any{"hasHdr": true},
+		})
 	})
 	mux.HandleFunc("/proxy/protect/integration/v1/nvrs", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": "nvr-1", "modelKey": "nvr", "name": "lab-nvr"})
@@ -79,5 +85,9 @@ func TestCameras(t *testing.T) {
 	}
 	if err := api.RestartCamera(context.Background(), "cam-1"); err != nil {
 		t.Fatal(err)
+	}
+	patched, err := api.PatchCamera(context.Background(), "cam-1", map[string]any{"hdrType": "off"})
+	if err != nil || patched["hdrType"] != "off" {
+		t.Fatalf("%v %+v", err, patched)
 	}
 }

@@ -76,9 +76,9 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 | Clients | `network clients list\|get` |
 | Devices | `network devices list\|get\|stats` |
 | Sites / app info | `network sites list`, `network info` |
-| Protect cameras / NVR / liveviews | `protect cameras …`, `protect nvr`, `protect liveviews` |
+| Protect cameras / NVR / liveviews | `protect cameras …` (incl. `snapshot`, `stream`, `set`, `update`), `protect nvr`, `protect liveviews` |
 | Protect extras | `protect lights`, `protect sensors`, `protect chimes`, `protect viewers` (empty lists if none) |
-| Access doors / users | `access info`, `access doors list\|get`, `access users list\|get` |
+| Access | `access doors` (lock/unlock), `access users`, `access visitors`, `access devices`, `access policies`, `access door-groups`, `access user-groups` (exit 11 if Access is missing) |
 
 Some commands fill Integration-API gaps via the local controller REST/v2 API. The CLI surface stays the same; JSON may include `"backend":"legacy-controller"` so agents can tell. Prefer Integration resources when both exist (VLANs, WiFi broadcasts, matching-lists). Firewall policy **list/get** uses v2 so every policy has an id and hit counters (Integration list often omits custom UUIDs).
 

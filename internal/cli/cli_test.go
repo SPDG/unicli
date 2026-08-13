@@ -504,3 +504,48 @@ func TestProtectNVRAndStreamRedact(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+func TestProtectCameraSetAndAccessVisitors(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/protect/integration/v1/cameras", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":"cam-1","modelKey":"camera","state":"CONNECTED","name":"vestibule"}]`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/cameras/cam-1", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			_, _ = w.Write([]byte(`{"id":"cam-1","hdrType":"off"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"cam-1","name":"vestibule","state":"CONNECTED","featureFlags":{"hasHdr":true}}`))
+	})
+	mux.HandleFunc("/proxy/access/api/v2/visitors", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":"v1","name":"Guest","status":"ACTIVE"}]`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "protect", "cameras", "get", "vestibule", "--json")
+	if err != nil {
+		t.Fatalf("get %v %s", err, out)
+	}
+	if !strings.Contains(out, `"hasHdr"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "protect", "cameras", "set", "vestibule", "--hdr", "off", "--json", "--allow-mutations", "--yes")
+	if err != nil {
+		t.Fatalf("set %v %s", err, out)
+	}
+	if !strings.Contains(out, `"off"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "access", "visitors", "list", "--json")
+	if err != nil {
+		t.Fatalf("visitors %v %s", err, out)
+	}
+	if !strings.Contains(out, `"Guest"`) {
+		t.Fatal(out)
+	}
+}

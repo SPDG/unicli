@@ -42,6 +42,15 @@ func TestDoorsAndUnlock(t *testing.T) {
 		unlocked = "door-1"
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("/proxy/access/api/v2/doors/door-1/lock", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("lock method=%s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("/proxy/access/api/v2/visitors", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "v1", "name": "Guest", "status": "ACTIVE"}})
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	c, err := client.New(srv.URL, "k", false)
@@ -69,6 +78,13 @@ func TestDoorsAndUnlock(t *testing.T) {
 	}
 	if unlocked != "door-1" {
 		t.Fatal("unlock not called")
+	}
+	if err := api.LockDoor(context.Background(), "door-1"); err != nil {
+		t.Fatal(err)
+	}
+	vis, err := api.Collection(context.Background(), "visitors")
+	if err != nil || vis[0]["name"] != "Guest" {
+		t.Fatalf("%v %+v", err, vis)
 	}
 	users, err := api.Users(context.Background())
 	if err != nil || users[0].Email != "ada@example.com" {

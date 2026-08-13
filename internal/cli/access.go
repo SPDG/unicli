@@ -19,6 +19,11 @@ func newAccessCmd() *cobra.Command {
 	cmd.AddCommand(newAccessInfoCmd())
 	cmd.AddCommand(newAccessDoorsCmd())
 	cmd.AddCommand(newAccessUsersCmd())
+	cmd.AddCommand(newAccessCollectionCmd("visitors", "Visitor passes", "visitors"))
+	cmd.AddCommand(newAccessCollectionCmd("devices", "Access hubs, readers, and relays", "devices"))
+	cmd.AddCommand(newAccessCollectionCmd("policies", "Access policies", "access_policies"))
+	cmd.AddCommand(newAccessCollectionCmd("door-groups", "Door groups", "door_groups"))
+	cmd.AddCommand(newAccessCollectionCmd("user-groups", "User groups", "user_groups"))
 	return cmd
 }
 
@@ -78,13 +83,19 @@ func newAccessDoorsCmd() *cobra.Command {
 				if name == "" {
 					name = d.FullName
 				}
-				rows = append(rows, []string{name, d.ID})
+				locked := ""
+				if d.IsLocked != nil {
+					locked = fmt.Sprintf("%v", *d.IsLocked)
+				} else if d.DoorLockRelayStatus != "" {
+					locked = d.DoorLockRelayStatus
+				}
+				rows = append(rows, []string{name, locked, d.ID})
 			}
-			return printList(cmd, out, []string{"NAME", "ID"}, rows, 0, len(doors), len(doors))
+			return printList(cmd, out, []string{"NAME", "LOCKED", "ID"}, rows, 0, len(doors), len(doors))
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get <door-id>",
+		Use:   "get <door-id-or-name>",
 		Short: "Get door details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,36 +103,19 @@ func newAccessDoorsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			door, err := api.Door(cmd.Context(), args[0])
+			id, err := resolveAccessDoor(cmd.Context(), api, args[0])
+			if err != nil {
+				return err
+			}
+			door, err := api.Door(cmd.Context(), id)
 			if err != nil {
 				return mapAPIErr(err)
 			}
 			return printValue(cmd, door, nil)
 		},
 	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "unlock <door-id>",
-		Short: "Remote-unlock a door (mutation)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := requireMutations("access doors unlock"); err != nil {
-				return err
-			}
-			if err := requireConfirm(fmt.Sprintf("Unlock door %s?", args[0])); err != nil {
-				return err
-			}
-			api, err := openAccess()
-			if err != nil {
-				return err
-			}
-			if err := api.UnlockDoor(cmd.Context(), args[0]); err != nil {
-				return mapAPIErr(err)
-			}
-			return printValue(cmd, map[string]any{
-				"action": "UNLOCK", "doorId": args[0], "status": "ok",
-			}, nil)
-		},
-	})
+	cmd.AddCommand(newAccessLockCmd(false))
+	cmd.AddCommand(newAccessLockCmd(true))
 	return cmd
 }
 
@@ -155,7 +149,7 @@ func newAccessUsersCmd() *cobra.Command {
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get <user-id>",
+		Use:   "get <user-id-or-name>",
 		Short: "Get Access user details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -163,7 +157,11 @@ func newAccessUsersCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			user, err := api.User(cmd.Context(), args[0])
+			id, err := resolveAccessUser(cmd.Context(), api, args[0])
+			if err != nil {
+				return err
+			}
+			user, err := api.User(cmd.Context(), id)
 			if err != nil {
 				return mapAPIErr(err)
 			}

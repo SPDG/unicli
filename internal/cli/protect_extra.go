@@ -233,6 +233,89 @@ func newProtectCameraRestartCmd() *cobra.Command {
 	}
 }
 
+func newProtectCameraUpdateCmd() *cobra.Command {
+	var fromJSON string
+	cmd := &cobra.Command{
+		Use:   "update <camera-id-or-name>",
+		Short: "PATCH camera settings from JSON (mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			api, err := openProtect()
+			if err != nil {
+				return err
+			}
+			id, err := resolveProtectCamera(cmd.Context(), api, args[0])
+			if err != nil {
+				return err
+			}
+			body, err := readJSONBody(fromJSON)
+			if err != nil {
+				return err
+			}
+			return runMutation(cmd, "protect cameras update", fmt.Sprintf("Update camera %s?", id), func() (any, error) {
+				return api.PatchCamera(cmd.Context(), id, body)
+			})
+		},
+	}
+	jsonFlag(cmd, &fromJSON)
+	_ = cmd.MarkFlagRequired("from-json")
+	return cmd
+}
+
+func newProtectCameraSetCmd() *cobra.Command {
+	var hdr, videoMode, micEnabled string
+	var micVolume int
+	cmd := &cobra.Command{
+		Use:   "set <camera-id-or-name>",
+		Short: "Set HDR, video mode, or microphone (mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			patch := map[string]any{}
+			if hdr != "" {
+				patch["hdrType"] = hdr
+			}
+			if videoMode != "" {
+				patch["videoMode"] = videoMode
+			}
+			if cmd.Flags().Changed("mic-volume") {
+				if micVolume < 0 || micVolume > 100 {
+					return exitf(exitcode.Usage, "--mic-volume must be 0-100")
+				}
+				patch["micVolume"] = micVolume
+			}
+			if micEnabled != "" {
+				switch strings.ToLower(micEnabled) {
+				case "true", "on", "1", "yes":
+					patch["isMicEnabled"] = true
+				case "false", "off", "0", "no":
+					patch["isMicEnabled"] = false
+				default:
+					return exitf(exitcode.Usage, "invalid --mic-enabled %q", micEnabled)
+				}
+			}
+			if len(patch) == 0 {
+				return exitf(exitcode.Usage, "set at least one of --hdr, --video-mode, --mic-volume, --mic-enabled")
+			}
+			api, err := openProtect()
+			if err != nil {
+				return err
+			}
+			id, err := resolveProtectCamera(cmd.Context(), api, args[0])
+			if err != nil {
+				return err
+			}
+			return runMutation(cmd, "protect cameras set", fmt.Sprintf("Set camera %s %v?", id, patch), func() (any, error) {
+				return api.PatchCamera(cmd.Context(), id, patch)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&hdr, "hdr", "", "HDR mode: auto, on, off")
+	cmd.Flags().StringVar(&videoMode, "video-mode", "", "video mode: default, sport, slowShutter, highFps")
+	cmd.Flags().IntVar(&micVolume, "mic-volume", -1, "microphone volume 0-100")
+	cmd.Flags().StringVar(&micEnabled, "mic-enabled", "", "true or false")
+	return cmd
+}
+
 func resolveProtectCamera(ctx context.Context, api *protect.API, arg string) (string, error) {
 	cams, err := api.Cameras(ctx)
 	if err != nil {

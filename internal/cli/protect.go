@@ -108,17 +108,19 @@ func newProtectCamerasCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cam, err := api.Camera(cmd.Context(), id)
+			cam, err := api.Device(cmd.Context(), "cameras", id)
 			if err != nil {
 				return mapAPIErr(err)
 			}
 			return printValue(cmd, cam, func() {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", cam.ID, cam.Name, cam.State)
+				fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", protect.DeviceID(cam), protect.DeviceName(cam), anyString(cam["state"]))
 			})
 		},
 	})
 	cmd.AddCommand(newProtectSnapshotCmd())
 	cmd.AddCommand(newProtectStreamCmd())
 	cmd.AddCommand(newProtectCameraRestartCmd())
+	cmd.AddCommand(newProtectCameraUpdateCmd())
+	cmd.AddCommand(newProtectCameraSetCmd())
 	return cmd
 }

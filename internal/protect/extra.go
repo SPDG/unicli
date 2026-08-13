@@ -51,6 +51,18 @@ func (a *API) RestartCamera(ctx context.Context, cameraID string) error {
 	return a.c.PostJSON(ctx, "protect", path, map[string]any{}, nil)
 }
 
+func (a *API) PatchCamera(ctx context.Context, cameraID string, body any) (map[string]any, error) {
+	var out map[string]any
+	path := "cameras/" + url.PathEscape(cameraID)
+	if err := a.c.PatchJSON(ctx, "protect", path, body, &out); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return map[string]any{"status": "ok", "id": cameraID}, nil
+	}
+	return out, nil
+}
+
 func decodeList(raw json.RawMessage) ([]map[string]any, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return []map[string]any{}, nil
