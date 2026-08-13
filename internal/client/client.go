@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -146,26 +147,76 @@ func (c *Client) do(ctx context.Context, method, absPath string, query url.Value
 		u.RawQuery = query.Encode()
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), reqBody)
-	if err != nil {
-		return nil, 0, err
-	}
-	req.Header.Set("X-API-KEY", c.apiKey)
-	req.Header.Set("Accept", "application/json")
+	var payload []byte
 	if reqBody != nil {
-		req.Header.Set("Content-Type", "application/json")
+		var err error
+		payload, err = io.ReadAll(reqBody)
+		if err != nil {
+			return nil, 0, err
+		}
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, 0, err
+	var lastBody []byte
+	var lastStatus int
+	for attempt := 0; attempt < 4; attempt++ {
+		var body io.Reader
+		if payload != nil {
+			body = bytes.NewReader(payload)
+		}
+		req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
+		if err != nil {
+			return nil, 0, err
+		}
+		req.Header.Set("X-API-KEY", c.apiKey)
+		req.Header.Set("Accept", "application/json")
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, 0, err
+		}
+		raw, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, resp.StatusCode, err
+		}
+		lastBody, lastStatus = raw, resp.StatusCode
+		if resp.StatusCode != http.StatusTooManyRequests || attempt == 3 {
+			return raw, resp.StatusCode, nil
+		}
+		wait := retryWait(resp.Header.Get("Retry-After"), raw)
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, 0, ctx.Err()
+		case <-timer.C:
+		}
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, resp.StatusCode, err
+	return lastBody, lastStatus, nil
+}
+
+func retryWait(retryAfter string, body []byte) time.Duration {
+	if n, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && n >= 0 {
+		d := time.Duration(n) * time.Second
+		if d > 10*time.Second {
+			d = 10 * time.Second
+		}
+		return d
 	}
-	return body, resp.StatusCode, nil
+	var env struct {
+		WindowMs int `json:"windowMs"`
+	}
+	if json.Unmarshal(body, &env) == nil && env.WindowMs > 0 {
+		d := time.Duration(env.WindowMs) * time.Millisecond
+		if d > 10*time.Second {
+			d = 10 * time.Second
+		}
+		return d
+	}
+	return time.Second
 }
 
 func looksLikeHTML(body []byte) bool {

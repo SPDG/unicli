@@ -125,3 +125,31 @@ func TestLooksLikeHTML(t *testing.T) {
 		t.Fatal("json should not look like HTML")
 	}
 }
+
+func TestRetriesOn429(t *testing.T) {
+	n := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n++
+		if n == 1 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":"Too many requests","windowMs":1000}`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"applicationVersion": "10.5.67"})
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(srv.URL, "k", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		ApplicationVersion string `json:"applicationVersion"`
+	}
+	if err := c.GetJSON(context.Background(), "network", "info", nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 || out.ApplicationVersion != "10.5.67" {
+		t.Fatalf("n=%d ver=%s", n, out.ApplicationVersion)
+	}
+}

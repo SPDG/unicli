@@ -6,7 +6,7 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-v0.2: Network (stable — Integration API plus controller REST/v2 where Integration is still incomplete), Protect cameras (beta), Access doors/users (beta; exit 11 if the app is missing).
+v0.3: Network (stable — Integration plus controller REST/v2 gaps), Protect cameras/NVR/liveviews (beta), Access doors/users/visitors/devices (beta; exit 11 if the app is missing).
 
 ## Capability matrix
 
