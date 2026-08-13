@@ -73,6 +73,9 @@ func TestDevicesClientsAndRestart(t *testing.T) {
 		restartBody, _ = io.ReadAll(r.Body)
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/clients/c1/actions", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/clients", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(Page[Client]{
 			Count: 1, TotalCount: 1,
@@ -112,6 +115,9 @@ func TestDevicesClientsAndRestart(t *testing.T) {
 	clients, err := api.Clients(ctx, "site-1", 0, 25)
 	if err != nil || clients.Data[0].Name != "pi" {
 		t.Fatalf("%v %+v", err, clients)
+	}
+	if err := api.KickClient(ctx, "site-1", "c1"); err != nil {
+		t.Fatal(err)
 	}
 }
 

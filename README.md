@@ -56,7 +56,7 @@ unicli network ports cycle <device-id> <port> --allow-mutations --yes
 unicli protect cameras list --json
 unicli protect nvr --json
 unicli protect cameras snapshot vestibule --output /tmp/vestibule.jpg
-unicli protect cameras set vestibule --hdr on --allow-mutations --yes
+unicli protect cameras set vestibule --lcd "WELCOME" --allow-mutations --yes
 unicli access info --json   # exit 11 if Access is not installed
 unicli access users list --json
 unicli completion install bash

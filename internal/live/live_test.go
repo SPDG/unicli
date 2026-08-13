@@ -103,6 +103,10 @@ func TestLiveDoctorAndLists(t *testing.T) {
 	if !strings.Contains(nvr, `"modelKey"`) {
 		t.Fatalf("nvr: %s", nvr)
 	}
+	sys := run("network", "sysinfo", "--json")
+	if !strings.Contains(sys, "legacy-controller") && !strings.Contains(sys, "version") {
+		t.Fatalf("sysinfo: %s", sys)
+	}
 
 	cmd := exec.Command(bin, "access", "info", "--json")
 	cmd.Env = os.Environ()

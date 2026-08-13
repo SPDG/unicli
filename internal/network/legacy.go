@@ -206,6 +206,17 @@ func (a *API) StatHealth(ctx context.Context, siteSlug string) ([]map[string]any
 	return a.legacyStat(ctx, siteSlug, "health")
 }
 
+func (a *API) StatSysinfo(ctx context.Context, siteSlug string) (map[string]any, error) {
+	items, err := a.legacyStat(ctx, siteSlug, "sysinfo")
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return map[string]any{}, nil
+	}
+	return items[0], nil
+}
+
 func (a *API) legacyStat(ctx context.Context, siteSlug, kind string) ([]map[string]any, error) {
 	var env legacyEnvelope
 	path := "/proxy/network/api/s/" + url.PathEscape(siteSlug) + "/stat/" + kind

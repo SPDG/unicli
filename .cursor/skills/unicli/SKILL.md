@@ -76,13 +76,13 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 | Clients | `network clients list\|get` |
 | Devices | `network devices list\|get\|stats` |
 | Sites / app info | `network sites list`, `network info` |
-| Protect cameras / NVR / liveviews | `protect cameras …` (incl. `snapshot`, `stream`, `set`, `update`), `protect nvr`, `protect liveviews` |
+| Protect cameras / NVR / liveviews | `protect cameras …` (incl. `snapshot`, `stream`, `set`, `update`), `protect nvr` (`arm`/`disarm`), `protect liveviews` |
 | Protect extras | `protect lights`, `protect sensors`, `protect chimes`, `protect viewers` (empty lists if none) |
 | Access | `access doors` (lock/unlock), `access users`, `access visitors`, `access devices`, `access policies`, `access door-groups`, `access user-groups` (exit 11 if Access is missing) |
 
 Some commands fill Integration-API gaps via the local controller REST/v2 API. The CLI surface stays the same; JSON may include `"backend":"legacy-controller"` so agents can tell. Prefer Integration resources when both exist (VLANs, WiFi broadcasts, matching-lists). Firewall policy **list/get** uses v2 so every policy has an id and hit counters (Integration list often omits custom UUIDs).
 
-Mutations need `--allow-mutations` and `--yes` when non-interactive. Create/update of complex DTOs (WiFi, firewall policy, DHCP) use `--from-json` (object, file, or `-`). Do not put passphrases or API keys on argv. `enable`/`disable` GET the object, drop read-only fields, and PUT. WiFi passphrases and Protect RTSPS tokens stay redacted unless `--include-secrets`. `protect cameras snapshot` writes JPEG to `--output` (or stdout with `-o -`).
+Mutations need `--allow-mutations` and `--yes` when non-interactive. Create/update of complex DTOs (WiFi, firewall policy, DHCP) use `--from-json` (object, file, or `-`). Do not put passphrases or API keys on argv. `enable`/`disable` GET the object, drop read-only fields, and PUT. WiFi passphrases and Protect RTSPS tokens stay redacted unless `--include-secrets`. `protect cameras snapshot` writes JPEG to `--output` (or stdout with `-o -`). `protect cameras set` also covers `--lcd`, OSD, LED, and `--detect`. `protect nvr arm|disarm` PATCHes alarm-manager state (may 404 on older firmware).
 
 ## Exit codes
 

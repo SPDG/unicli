@@ -63,6 +63,29 @@ func (a *API) PatchCamera(ctx context.Context, cameraID string, body any) (map[s
 	return out, nil
 }
 
+func (a *API) PatchNVR(ctx context.Context, body any) (map[string]any, error) {
+	var out map[string]any
+	if err := a.c.PatchJSON(ctx, "protect", "nvrs", body, &out); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return map[string]any{"status": "ok"}, nil
+	}
+	return out, nil
+}
+
+func (a *API) PatchDevice(ctx context.Context, collection, id string, body any) (map[string]any, error) {
+	var out map[string]any
+	path := collection + "/" + url.PathEscape(id)
+	if err := a.c.PatchJSON(ctx, "protect", path, body, &out); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return map[string]any{"status": "ok", "id": id}, nil
+	}
+	return out, nil
+}
+
 func decodeList(raw json.RawMessage) ([]map[string]any, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return []map[string]any{}, nil

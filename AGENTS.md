@@ -37,7 +37,8 @@ unicli network port-profiles list --json
 unicli network lists list --json
 unicli protect nvr --json
 unicli protect cameras snapshot vestibule --output /tmp/cam.jpg
-unicli protect cameras set vestibule --hdr on --allow-mutations --yes
+unicli protect cameras set vestibule --lcd "WELCOME" --allow-mutations --yes
+unicli protect nvr --json
 ```
 
 ## Configuration

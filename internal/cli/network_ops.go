@@ -67,6 +67,24 @@ func newNetworkHealthCmd() *cobra.Command {
 	}
 }
 
+func newNetworkSysinfoCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "sysinfo",
+		Short: "Controller sysinfo (hostname, version, timezone)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return withLegacySite(cmd, func(api *network.API, slug string) error {
+				info, err := api.StatSysinfo(cmd.Context(), slug)
+				if err != nil {
+					return mapAPIErr(err)
+				}
+				return printValue(cmd, legacyWrap("sysinfo", slug, info), func() {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", anyString(info["hostname"]), anyString(info["version"]), anyString(info["timezone"]))
+				})
+			})
+		},
+	}
+}
+
 func newNetworkDHCPCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dhcp",

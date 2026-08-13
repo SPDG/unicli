@@ -95,10 +95,11 @@ func newProtectCamerasCmd() *cobra.Command {
 			return printList(cmd, out, []string{"NAME", "MODEL", "STATE", "ID"}, rows, start, len(page), total)
 		},
 	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "get <camera-id-or-name>",
-		Short: "Get camera details",
-		Args:  cobra.ExactArgs(1),
+	get := &cobra.Command{
+		Use:               "get <camera-id-or-name>",
+		Short:             "Get camera details",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeProtectCameras,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			api, err := openProtect()
 			if err != nil {
@@ -116,7 +117,8 @@ func newProtectCamerasCmd() *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", protect.DeviceID(cam), protect.DeviceName(cam), anyString(cam["state"]))
 			})
 		},
-	})
+	}
+	cmd.AddCommand(get)
 	cmd.AddCommand(newProtectSnapshotCmd())
 	cmd.AddCommand(newProtectStreamCmd())
 	cmd.AddCommand(newProtectCameraRestartCmd())

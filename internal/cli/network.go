@@ -41,6 +41,7 @@ func newNetworkCmd() *cobra.Command {
 	cmd.AddCommand(newNetworkPortForwardsCmd())
 	cmd.AddCommand(newNetworkDHCPCmd())
 	cmd.AddCommand(newNetworkHealthCmd())
+	cmd.AddCommand(newNetworkSysinfoCmd())
 	cmd.AddCommand(newNetworkDynamicDNSCmd())
 	cmd.AddCommand(newNetworkClientGroupsCmd())
 	return cmd
@@ -394,6 +395,21 @@ func newNetworkClientsCmd() *cobra.Command {
 			return printValue(cmd, map[string]any{
 				"action": "UNAUTHORIZE_GUEST_ACCESS", "clientId": args[0], "siteId": siteID, "status": "ok",
 			}, nil)
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "kick <client-id>",
+		Short: "Disconnect a client (mutation)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return withNetworkSite(cmd, func(api *network.API, siteID string) error {
+				return runMutation(cmd, "network clients kick", fmt.Sprintf("Kick client %s?", args[0]), func() (any, error) {
+					if err := api.KickClient(cmd.Context(), siteID, args[0]); err != nil {
+						return nil, err
+					}
+					return map[string]any{"action": "KICK", "clientId": args[0], "siteId": siteID, "status": "ok"}, nil
+				})
+			})
 		},
 	})
 	return cmd

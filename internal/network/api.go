@@ -149,6 +149,11 @@ func (a *API) UnauthorizeGuest(ctx context.Context, siteID, clientID string) err
 	return a.c.PostJSON(ctx, "network", path, actionRequest{Action: "UNAUTHORIZE_GUEST_ACCESS"}, nil)
 }
 
+func (a *API) KickClient(ctx context.Context, siteID, clientID string) error {
+	path := "sites/" + url.PathEscape(siteID) + "/clients/" + url.PathEscape(clientID) + "/actions"
+	return a.c.PostJSON(ctx, "network", path, actionRequest{Action: "KICK"}, nil)
+}
+
 func pageQuery(offset, limit int) url.Values {
 	if limit <= 0 {
 		limit = 25

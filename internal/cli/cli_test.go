@@ -466,7 +466,11 @@ func TestProtectNVRAndStreamRedact(t *testing.T) {
 	t.Cleanup(func() { rootOpts = rootOptions{} })
 	mux := http.NewServeMux()
 	mux.HandleFunc("/proxy/protect/integration/v1/nvrs", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"id":"nvr-1","modelKey":"nvr","name":"lab-nvr"}`))
+		if r.Method == http.MethodPatch {
+			_, _ = w.Write([]byte(`{"id":"nvr-1","armMode":{"status":"armed"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"nvr-1","modelKey":"nvr","name":"lab-nvr","armMode":{"status":"disabled"}}`))
 	})
 	mux.HandleFunc("/proxy/protect/integration/v1/cameras", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`[{"id":"cam-1","modelKey":"camera","state":"CONNECTED","name":"vestibule"}]`))
@@ -546,6 +550,48 @@ func TestProtectCameraSetAndAccessVisitors(t *testing.T) {
 		t.Fatalf("visitors %v %s", err, out)
 	}
 	if !strings.Contains(out, `"Guest"`) {
+		t.Fatal(out)
+	}
+}
+
+func TestProtectNVRArmAndCameraLCD(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/protect/integration/v1/nvrs", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			_, _ = w.Write([]byte(`{"id":"nvr-1","armMode":{"status":"armed"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"nvr-1","name":"lab-nvr","armMode":{"status":"disabled"}}`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/cameras", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":"cam-1","name":"vestibule","state":"CONNECTED"}]`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/cameras/cam-1", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			_, _ = w.Write([]byte(`{"id":"cam-1","lcdMessage":{"type":"CUSTOM_MESSAGE","text":"WELCOME"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"cam-1","name":"vestibule","osdSettings":{},"ledSettings":{},"smartDetectSettings":{}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "protect", "nvr", "arm", "--json", "--allow-mutations", "--yes")
+	if err != nil {
+		t.Fatalf("arm %v %s", err, out)
+	}
+	if !strings.Contains(out, `"armed"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "protect", "cameras", "set", "vestibule", "--lcd", "WELCOME", "--json", "--allow-mutations", "--yes")
+	if err != nil {
+		t.Fatalf("lcd %v %s", err, out)
+	}
+	if !strings.Contains(out, `"WELCOME"`) {
 		t.Fatal(out)
 	}
 }

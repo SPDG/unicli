@@ -30,7 +30,11 @@ func TestCameras(t *testing.T) {
 		})
 	})
 	mux.HandleFunc("/proxy/protect/integration/v1/nvrs", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{"id": "nvr-1", "modelKey": "nvr", "name": "lab-nvr"})
+		if r.Method == http.MethodPatch {
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "nvr-1", "armMode": map[string]any{"status": "armed"}})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": "nvr-1", "modelKey": "nvr", "name": "lab-nvr", "armMode": map[string]any{"status": "disabled"}})
 	})
 	mux.HandleFunc("/proxy/protect/integration/v1/liveviews", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode([]map[string]any{{"id": "lv-1", "name": "Default", "modelKey": "liveview"}})
@@ -89,5 +93,9 @@ func TestCameras(t *testing.T) {
 	patched, err := api.PatchCamera(context.Background(), "cam-1", map[string]any{"hdrType": "off"})
 	if err != nil || patched["hdrType"] != "off" {
 		t.Fatalf("%v %+v", err, patched)
+	}
+	armed, err := api.PatchNVR(context.Background(), map[string]any{"armMode": map[string]any{"status": "armed"}})
+	if err != nil || armed["id"] != "nvr-1" {
+		t.Fatalf("%v %+v", err, armed)
 	}
 }
