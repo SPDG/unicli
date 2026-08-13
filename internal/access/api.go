@@ -27,12 +27,21 @@ type Info struct {
 }
 
 type Door struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	FullName string `json:"full_name,omitempty"`
-	Type   string `json:"type,omitempty"`
-	IsLocked *bool `json:"is_locked,omitempty"`
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	FullName            string `json:"full_name,omitempty"`
+	Type                string `json:"type,omitempty"`
+	IsLocked            *bool  `json:"is_locked,omitempty"`
 	DoorLockRelayStatus string `json:"door_lock_relay_status,omitempty"`
+}
+
+type User struct {
+	ID        string `json:"id"`
+	Name      string `json:"name,omitempty"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 type doorsEnvelope struct {
@@ -52,11 +61,32 @@ func (a *API) Info(ctx context.Context) (*Info, error) {
 }
 
 func (a *API) Doors(ctx context.Context) ([]Door, error) {
-	raw, err := a.getDoorsRaw(ctx)
+	raw, err := a.getRaw(ctx, "/proxy/access/api/v2/doors")
 	if err != nil {
 		return nil, err
 	}
-	return parseDoors(raw)
+	return parseList[Door](raw)
+}
+
+func (a *API) Users(ctx context.Context) ([]User, error) {
+	raw, err := a.getRaw(ctx, "/proxy/access/api/v2/users")
+	if err != nil {
+		return nil, err
+	}
+	return parseList[User](raw)
+}
+
+func (a *API) User(ctx context.Context, id string) (*User, error) {
+	users, err := a.Users(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		if users[i].ID == id {
+			return &users[i], nil
+		}
+	}
+	return nil, fmt.Errorf("user %q not found", id)
 }
 
 func (a *API) Door(ctx context.Context, id string) (*Door, error) {
@@ -78,37 +108,35 @@ func (a *API) UnlockDoor(ctx context.Context, id string) error {
 	return a.c.PutJSON(ctx, path, map[string]any{}, nil)
 }
 
-func (a *API) getDoorsRaw(ctx context.Context) (json.RawMessage, error) {
+func (a *API) getRaw(ctx context.Context, path string) (json.RawMessage, error) {
 	var raw json.RawMessage
-	if err := a.c.GetPathJSON(ctx, "/proxy/access/api/v2/doors", nil, &raw); err != nil {
+	if err := a.c.GetPathJSON(ctx, path, nil, &raw); err != nil {
 		return nil, err
 	}
 	return raw, nil
 }
 
-func parseDoors(raw json.RawMessage) ([]Door, error) {
-	// Shape A: bare array
-	var arr []Door
+func parseList[T any](raw json.RawMessage) ([]T, error) {
+	var arr []T
 	if err := json.Unmarshal(raw, &arr); err == nil {
 		return arr, nil
 	}
-	// Shape B: {code,msg,data:[...]} or {data:{items:[...]}}
 	var env doorsEnvelope
 	if err := json.Unmarshal(raw, &env); err != nil {
-		return nil, fmt.Errorf("decode doors: %w", err)
+		return nil, fmt.Errorf("decode list: %w", err)
 	}
 	if len(env.Data) == 0 {
-		return []Door{}, nil
+		return []T{}, nil
 	}
 	if err := json.Unmarshal(env.Data, &arr); err == nil {
 		return arr, nil
 	}
 	var wrapped struct {
-		Items []Door `json:"items"`
-		Data  []Door `json:"data"`
+		Items []T `json:"items"`
+		Data  []T `json:"data"`
 	}
 	if err := json.Unmarshal(env.Data, &wrapped); err != nil {
-		return nil, fmt.Errorf("decode doors data: %w", err)
+		return nil, fmt.Errorf("decode list data: %w", err)
 	}
 	if len(wrapped.Items) > 0 {
 		return wrapped.Items, nil

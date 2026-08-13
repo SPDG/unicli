@@ -265,6 +265,8 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "access doors list"},
 					{"name": "access doors get"},
 					{"name": "access doors unlock", "mutation": true, "confirmation_required": true},
+					{"name": "access users list"},
+					{"name": "access users get"},
 					{"name": "completion install"},
 				},
 			}

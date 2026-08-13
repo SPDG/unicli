@@ -6,8 +6,17 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-Access commands are present and fail cleanly when Access is not installed (exit 11).
-Shell completion via `unicli completion install`.
+v0.1: Network (stable), Protect cameras (beta), Access doors/users (beta; exit 11 if the app is missing).
+
+## Capability matrix
+
+| App | Status | Commands |
+|-----|--------|----------|
+| Network | stable | info, sites, devices list/get/stats/restart, ports cycle, clients list/get/authorize |
+| Protect | beta | info, cameras list/get |
+| Access | beta | info, doors list/get/unlock, users list/get |
+
+Mutations require `--allow-mutations` (and `--yes` when non-interactive).
 
 ## Install
 
@@ -36,6 +45,7 @@ unicli network devices restart <id> --allow-mutations --yes
 unicli network ports cycle <device-id> <port> --allow-mutations --yes
 unicli protect cameras list --json --select totalCount,cameras
 unicli access info --json   # exit 11 if Access is not installed
+unicli access users list --json
 unicli completion install bash
 
 # Multiple gateways via named profiles

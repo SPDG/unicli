@@ -11,16 +11,16 @@ import (
 	"github.com/SPDG/unicli/internal/client"
 )
 
-func TestParseDoorsShapes(t *testing.T) {
-	arr, err := parseDoors(json.RawMessage(`[{"id":"d1","name":"Front"}]`))
+func TestParseListShapes(t *testing.T) {
+	arr, err := parseList[Door](json.RawMessage(`[{"id":"d1","name":"Front"}]`))
 	if err != nil || len(arr) != 1 || arr[0].Name != "Front" {
 		t.Fatalf("%v %+v", err, arr)
 	}
-	env, err := parseDoors(json.RawMessage(`{"code":"SUCCESS","data":[{"id":"d2","name":"Back"}]}`))
+	env, err := parseList[Door](json.RawMessage(`{"code":"SUCCESS","data":[{"id":"d2","name":"Back"}]}`))
 	if err != nil || env[0].ID != "d2" {
 		t.Fatalf("%v %+v", err, env)
 	}
-	items, err := parseDoors(json.RawMessage(`{"data":{"items":[{"id":"d3","name":"Side"}]}}`))
+	items, err := parseList[Door](json.RawMessage(`{"data":{"items":[{"id":"d3","name":"Side"}]}}`))
 	if err != nil || items[0].Name != "Side" {
 		t.Fatalf("%v %+v", err, items)
 	}
@@ -31,6 +31,9 @@ func TestDoorsAndUnlock(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/proxy/access/api/v2/doors", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode([]Door{{ID: "door-1", Name: "Front"}})
+	})
+	mux.HandleFunc("/proxy/access/api/v2/users", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]User{{ID: "u1", Name: "Ada", Email: "ada@example.com"}})
 	})
 	mux.HandleFunc("/proxy/access/api/v2/doors/door-1/unlock", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
@@ -66,6 +69,14 @@ func TestDoorsAndUnlock(t *testing.T) {
 	}
 	if unlocked != "door-1" {
 		t.Fatal("unlock not called")
+	}
+	users, err := api.Users(context.Background())
+	if err != nil || users[0].Email != "ada@example.com" {
+		t.Fatalf("%v %+v", err, users)
+	}
+	user, err := api.User(context.Background(), "u1")
+	if err != nil || user.Name != "Ada" {
+		t.Fatalf("%v %+v", err, user)
 	}
 }
 

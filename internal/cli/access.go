@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,7 @@ func newAccessCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newAccessInfoCmd())
 	cmd.AddCommand(newAccessDoorsCmd())
+	cmd.AddCommand(newAccessUsersCmd())
 	return cmd
 }
 
@@ -118,6 +120,54 @@ func newAccessDoorsCmd() *cobra.Command {
 			return printValue(cmd, map[string]any{
 				"action": "UNLOCK", "doorId": args[0], "status": "ok",
 			}, nil)
+		},
+	})
+	return cmd
+}
+
+func newAccessUsersCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "users",
+		Short: "User commands",
+	}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List Access users",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			api, err := openAccess()
+			if err != nil {
+				return err
+			}
+			users, err := api.Users(cmd.Context())
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			out := map[string]any{"count": len(users), "users": users}
+			return printValue(cmd, out, func() {
+				for _, u := range users {
+					name := u.Name
+					if name == "" {
+						name = strings.TrimSpace(u.FirstName + " " + u.LastName)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", u.ID, name, u.Email)
+				}
+			})
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "get <user-id>",
+		Short: "Get Access user details",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			api, err := openAccess()
+			if err != nil {
+				return err
+			}
+			user, err := api.User(cmd.Context(), args[0])
+			if err != nil {
+				return mapAPIErr(err)
+			}
+			return printValue(cmd, user, nil)
 		},
 	})
 	return cmd
