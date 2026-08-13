@@ -22,6 +22,7 @@ Mutations require `--allow-mutations` (and `--yes` when non-interactive).
 
 ```bash
 go install github.com/SPDG/unicli/cmd/unicli@latest
+go install github.com/SPDG/unicli/cmd/unicli-mcp@latest
 unicli completion install bash   # then restart shell / source ~/.bashrc
 ```
 
@@ -67,6 +68,24 @@ API keys are never accepted on argv (they leak via process lists and shell histo
 
 See [AGENTS.md](./AGENTS.md). Short version: use `--json`, read `unicli schema`, treat mutations as gated.
 
+## MCP (optional)
+
+`unicli-mcp` is a thin stdio MCP server that **executes `unicli`**. It does not reimplement UniFi APIs.
+
+Tools: `unicli_schema`, `unicli_doctor`, `unicli_run`.
+
+```json
+{
+  "mcpServers": {
+    "unicli": {
+      "command": "unicli-mcp"
+    }
+  }
+}
+```
+
+Mutations via MCP require `allow_mutations: true` on `unicli_run`. The CLI remains the source of truth.
+
 ## Tests
 
 ```bash
@@ -77,7 +96,7 @@ make live          # optional: hits a real console (needs UNIFI_HOST + UNIFI_API
 ## Non-goals (for now)
 
 - UniFi Site Manager cloud API
-- MCP as the primary interface (optional thin wrapper may come later)
+- MCP as the primary interface (optional `unicli-mcp` wrapper shells out to the CLI)
 - Reverse-engineered undocumented controller endpoints as the default path
 - Interactive TUI
 

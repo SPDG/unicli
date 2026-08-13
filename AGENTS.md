@@ -13,6 +13,7 @@ This CLI is designed so agents can call UniFi APIs without hand-rolled `curl`.
 7. If Access is not installed on the console, Access commands exit `11` (`unsupported`) instead of inventing data.
 8. For multi-gateway setups, set `UNIFI_PROFILE` or `--profile`, or rely on config `current`. Env host/key overrides the selected profile.
 9. Branch on exit codes from `unicli schema`, not on scraped stderr prose.
+10. Optional MCP: `unicli-mcp` exposes `unicli_schema`, `unicli_doctor`, and `unicli_run`. Prefer the CLI when a shell is available.
 
 ## Typical flow
 

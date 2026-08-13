@@ -268,6 +268,7 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "access users list"},
 					{"name": "access users get"},
 					{"name": "completion install"},
+					{"name": "unicli-mcp (stdio MCP wrapper)"},
 				},
 			}
 			return output.WriteJSON(cmd.OutOrStdout(), schema)

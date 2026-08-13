@@ -8,6 +8,7 @@ vet:
 
 build:
 	go build -o bin/unicli ./cmd/unicli
+	go build -o bin/unicli-mcp ./cmd/unicli-mcp
 
 live:
 	go test -tags live -count=1 ./internal/live/...
