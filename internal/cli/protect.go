@@ -15,7 +15,13 @@ func newProtectCmd() *cobra.Command {
 		Short: "UniFi Protect application commands",
 	}
 	cmd.AddCommand(newProtectInfoCmd())
+	cmd.AddCommand(newProtectNVRCmd())
 	cmd.AddCommand(newProtectCamerasCmd())
+	cmd.AddCommand(newProtectLiveviewsCmd())
+	cmd.AddCommand(newProtectDevicesCmd("lights", "Flood / AI lights"))
+	cmd.AddCommand(newProtectDevicesCmd("sensors", "Protect sensors"))
+	cmd.AddCommand(newProtectDevicesCmd("chimes", "Doorbell chimes"))
+	cmd.AddCommand(newProtectDevicesCmd("viewers", "Viewports / viewers"))
 	return cmd
 }
 
@@ -90,7 +96,7 @@ func newProtectCamerasCmd() *cobra.Command {
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get <camera-id>",
+		Use:   "get <camera-id-or-name>",
 		Short: "Get camera details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -98,7 +104,11 @@ func newProtectCamerasCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cam, err := api.Camera(cmd.Context(), args[0])
+			id, err := resolveProtectCamera(cmd.Context(), api, args[0])
+			if err != nil {
+				return err
+			}
+			cam, err := api.Camera(cmd.Context(), id)
 			if err != nil {
 				return mapAPIErr(err)
 			}
@@ -107,5 +117,8 @@ func newProtectCamerasCmd() *cobra.Command {
 			})
 		},
 	})
+	cmd.AddCommand(newProtectSnapshotCmd())
+	cmd.AddCommand(newProtectStreamCmd())
+	cmd.AddCommand(newProtectCameraRestartCmd())
 	return cmd
 }

@@ -69,7 +69,7 @@ func NewRoot() *cobra.Command {
 	root.PersistentFlags().StringVar(&rootOpts.selectFields, "select", "", "comma-separated JSON fields to project")
 	root.PersistentFlags().BoolVar(&rootOpts.allowMutations, "allow-mutations", false, "permit state-changing commands")
 	root.PersistentFlags().BoolVar(&rootOpts.yes, "yes", false, "skip confirmation prompts for destructive mutations")
-	root.PersistentFlags().BoolVar(&rootOpts.includeSecrets, "include-secrets", false, "include WiFi passphrases and other secrets in output")
+	root.PersistentFlags().BoolVar(&rootOpts.includeSecrets, "include-secrets", false, "include WiFi passphrases, RTSPS tokens, and other secrets in output")
 	root.PersistentFlags().BoolVar(&rootOpts.allPages, "all", false, "fetch every page of a list (ignores --limit/--offset)")
 	root.PersistentFlags().StringVar(&rootOpts.filterName, "name", "", "substring filter on NAME for list commands")
 	root.PersistentFlags().IntVar(&rootOpts.filterVLAN, "vlan", -1, "filter networks/clients by VLAN ID")
@@ -374,8 +374,18 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "network client-groups update", "mutation": true, "confirmation_required": true, "legacy": true},
 					{"name": "network client-groups delete", "mutation": true, "confirmation_required": true, "legacy": true},
 					{"name": "protect info"},
+					{"name": "protect nvr"},
 					{"name": "protect cameras list"},
 					{"name": "protect cameras get"},
+					{"name": "protect cameras snapshot"},
+					{"name": "protect cameras stream"},
+					{"name": "protect cameras restart", "mutation": true, "confirmation_required": true},
+					{"name": "protect liveviews list"},
+					{"name": "protect liveviews get"},
+					{"name": "protect lights list"},
+					{"name": "protect sensors list"},
+					{"name": "protect chimes list"},
+					{"name": "protect viewers list"},
 					{"name": "access info"},
 					{"name": "access doors list"},
 					{"name": "access doors get"},

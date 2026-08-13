@@ -18,7 +18,7 @@ Discover live flags and commands with `unicli schema --json` before guessing. Th
 1. Always pass `--json` (or rely on non-TTY stdout, which defaults to JSON). Do not parse human tables.
 2. Never put API keys on argv. Use `UNIFI_API_KEY` or `printf %s "$KEY" | unicli auth login`.
 3. Read-only by default. Mutations need `--allow-mutations`. Destructive mutations also need `--yes` when stdin is not a TTY.
-4. Do not pass `--include-secrets` unless the user explicitly needs a passphrase. `network wifi get` redacts secrets by default.
+4. Do not pass `--include-secrets` unless the user explicitly needs a passphrase or RTSPS token. `network wifi get` and `protect cameras stream` redact secrets by default.
 5. If Access is missing, commands exit `11` (`unsupported`). Do not invent doors/users.
 6. Branch on exit codes from `unicli schema`, not on stderr prose.
 7. Use `--select a,b.c` to keep payloads small. Use `--limit` / `--offset` and read `page.totalCount`.
@@ -76,7 +76,8 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 | Clients | `network clients list\|get` |
 | Devices | `network devices list\|get\|stats` |
 | Sites / app info | `network sites list`, `network info` |
-| Protect cameras | `protect cameras list\|get` |
+| Protect cameras / NVR / liveviews | `protect cameras …`, `protect nvr`, `protect liveviews` |
+| Protect extras | `protect lights`, `protect sensors`, `protect chimes`, `protect viewers` (empty lists if none) |
 | Access doors / users | `access info`, `access doors list\|get`, `access users list\|get` |
 
 Some commands fill Integration-API gaps via the local controller REST/v2 API. The CLI surface stays the same; JSON may include `"backend":"legacy-controller"` so agents can tell. Prefer Integration resources when both exist (VLANs, WiFi broadcasts, matching-lists). Firewall policy **list/get** uses v2 so every policy has an id and hit counters (Integration list often omits custom UUIDs).

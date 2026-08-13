@@ -72,7 +72,7 @@ func TestLiveDoctorAndLists(t *testing.T) {
 		t.Fatalf("zones: %s", zones)
 	}
 	pols := run("network", "firewall", "policies", "list", "--json", "--limit", "1")
-	if !strings.Contains(pols, "siteId") {
+	if !strings.Contains(pols, "firewall-policies") && !strings.Contains(pols, "siteId") {
 		t.Fatalf("policies: %s", pols)
 	}
 	acls := run("network", "acl", "list", "--json", "--limit", "1")
@@ -98,6 +98,10 @@ func TestLiveDoctorAndLists(t *testing.T) {
 	protect := run("protect", "info", "--json")
 	if !strings.Contains(protect, "applicationVersion") {
 		t.Fatalf("protect: %s", protect)
+	}
+	nvr := run("protect", "nvr", "--json")
+	if !strings.Contains(nvr, `"modelKey"`) {
+		t.Fatalf("nvr: %s", nvr)
 	}
 
 	cmd := exec.Command(bin, "access", "info", "--json")

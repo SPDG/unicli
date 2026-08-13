@@ -35,6 +35,8 @@ unicli network port-forwards list --json
 unicli network routes list --json
 unicli network port-profiles list --json
 unicli network lists list --json
+unicli protect nvr --json
+unicli protect cameras snapshot vestibule --output /tmp/cam.jpg
 ```
 
 ## Configuration

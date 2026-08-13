@@ -460,3 +460,47 @@ func TestLegacyRoutesList(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+func TestProtectNVRAndStreamRedact(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/protect/integration/v1/nvrs", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"id":"nvr-1","modelKey":"nvr","name":"lab-nvr"}`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/cameras", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":"cam-1","modelKey":"camera","state":"CONNECTED","name":"vestibule"}]`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/cameras/cam-1/rtsps-stream", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"high":"rtsps://192.168.5.1:7441/secretToken?enableSrtp"}`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/liveviews", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":"lv-1","name":"Default","modelKey":"liveview"}]`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "protect", "nvr", "--json")
+	if err != nil {
+		t.Fatalf("nvr %v %s", err, out)
+	}
+	if !strings.Contains(out, `"lab-nvr"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "protect", "cameras", "stream", "vestibule", "--json")
+	if err != nil {
+		t.Fatalf("stream %v %s", err, out)
+	}
+	if strings.Contains(out, "secretToken") || !strings.Contains(out, "[redacted]") {
+		t.Fatalf("expected redacted stream: %s", out)
+	}
+	out, _, err = execCLI(t, "protect", "liveviews", "list", "--json")
+	if err != nil {
+		t.Fatalf("liveviews %v %s", err, out)
+	}
+	if !strings.Contains(out, `"Default"`) {
+		t.Fatal(out)
+	}
+}

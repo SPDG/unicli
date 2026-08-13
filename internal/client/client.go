@@ -49,6 +49,21 @@ func (c *Client) GetJSON(ctx context.Context, app, path string, query url.Values
 	return c.roundTrip(ctx, http.MethodGet, integrationPath(app, path), query, nil, dest)
 }
 
+// GetBytes GETs an Integration path and returns the raw body (snapshots, thumbnails).
+func (c *Client) GetBytes(ctx context.Context, app, path string, query url.Values) ([]byte, error) {
+	raw, status, err := c.do(ctx, http.MethodGet, integrationPath(app, path), query, nil)
+	if err != nil {
+		return nil, err
+	}
+	if looksLikeHTML(raw) {
+		return nil, AppUnavailableError{Path: integrationPath(app, path), Status: status}
+	}
+	if status < 200 || status >= 300 {
+		return nil, APIError{Status: status, Body: raw}
+	}
+	return raw, nil
+}
+
 func (c *Client) PostJSON(ctx context.Context, app, path string, payload any, dest any) error {
 	return c.writeJSON(ctx, http.MethodPost, integrationPath(app, path), payload, dest)
 }

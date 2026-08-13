@@ -13,7 +13,7 @@ v0.2: Network (stable — Integration API plus controller REST/v2 where Integrat
 | App | Status | Commands |
 |-----|--------|----------|
 | Network | stable | VLANs, WiFi, firewall, ACL, DNS, routes, ports, DHCP, port forwards, clients, devices |
-| Protect | beta | info, cameras list/get |
+| Protect | beta | info, nvr, cameras (list/get/snapshot/stream/restart), liveviews, lights, sensors, chimes, viewers |
 | Access | beta | info, doors list/get/unlock, users list/get |
 
 Mutations require `--allow-mutations` (and `--yes` when non-interactive).
@@ -53,7 +53,9 @@ unicli network health --json
 unicli network devices restart <id>              # blocked without --allow-mutations
 unicli network devices restart <id> --allow-mutations --yes
 unicli network ports cycle <device-id> <port> --allow-mutations --yes
-unicli protect cameras list --json --select totalCount,cameras
+unicli protect cameras list --json
+unicli protect nvr --json
+unicli protect cameras snapshot vestibule --output /tmp/vestibule.jpg
 unicli access info --json   # exit 11 if Access is not installed
 unicli access users list --json
 unicli completion install bash
