@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/SPDG/unicli/internal/access"
 	"github.com/SPDG/unicli/internal/client"
 	"github.com/SPDG/unicli/internal/config"
 	"github.com/SPDG/unicli/internal/credstore"
@@ -49,6 +50,7 @@ func NewRoot() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	root.CompletionOptions.DisableDefaultCmd = true
 
 	root.PersistentFlags().StringVar(&rootOpts.configPath, "config", "", "config file (default: ~/.config/unicli/config.yaml)")
 	root.PersistentFlags().StringVar(&rootOpts.profile, "profile", "", "named gateway profile")
@@ -63,6 +65,8 @@ func NewRoot() *cobra.Command {
 	root.PersistentFlags().BoolVar(&rootOpts.allowMutations, "allow-mutations", false, "permit state-changing commands")
 	root.PersistentFlags().BoolVar(&rootOpts.yes, "yes", false, "skip confirmation prompts for destructive mutations")
 
+	_ = root.RegisterFlagCompletionFunc("profile", completeProfileNames)
+
 	root.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		rootOpts.insecureSet = cmd.Flags().Changed("insecure")
 	}
@@ -74,6 +78,8 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newSchemaCmd())
 	root.AddCommand(newNetworkCmd())
 	root.AddCommand(newProtectCmd())
+	root.AddCommand(newAccessCmd())
+	root.AddCommand(newCompletionCmd())
 	return root
 }
 
@@ -255,6 +261,11 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "protect info"},
 					{"name": "protect cameras list"},
 					{"name": "protect cameras get"},
+					{"name": "access info"},
+					{"name": "access doors list"},
+					{"name": "access doors get"},
+					{"name": "access doors unlock", "mutation": true, "confirmation_required": true},
+					{"name": "completion install"},
 				},
 			}
 			return output.WriteJSON(cmd.OutOrStdout(), schema)
@@ -306,6 +317,13 @@ func newDoctorCmd() *cobra.Command {
 				report["protect_error"] = perr.Error()
 			}
 
+			if _, aerr := access.New(c).Info(cmd.Context()); aerr == nil {
+				report["access_available"] = true
+			} else {
+				report["access_available"] = false
+				report["access_error"] = aerr.Error()
+			}
+
 			return printValue(cmd, report, func() {
 				fmt.Fprintf(cmd.OutOrStdout(), "ok host=%s profile=%s network=%s\n", res.Host, res.Profile, info.ApplicationVersion)
 			})
@@ -314,6 +332,10 @@ func newDoctorCmd() *cobra.Command {
 }
 
 func mapAPIErr(err error) error {
+	var unavailable client.AppUnavailableError
+	if errors.As(err, &unavailable) {
+		return exitf(exitcode.Unsupported, "UniFi application not available on this console: %v", err)
+	}
 	var ae client.APIError
 	if errors.As(err, &ae) {
 		switch {

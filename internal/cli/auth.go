@@ -114,6 +114,7 @@ func newAuthLoginCmd() *cobra.Command {
 	cmd.Flags().StringVar(&profile, "profile", "", "profile name (default: current or \"default\")")
 	cmd.Flags().StringVar(&host, "host", "", "console URL or host")
 	cmd.Flags().BoolVar(&insecure, "insecure", false, "skip TLS verification for this profile")
+	_ = cmd.RegisterFlagCompletionFunc("profile", completeProfileNames)
 	return cmd
 }
 

@@ -6,14 +6,14 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-Phase 3 started: Protect `info` + `cameras list|get` against the live Integration API.
-
-Access comes next.
+Access commands are present and fail cleanly when Access is not installed (exit 11).
+Shell completion via `unicli completion install`.
 
 ## Install
 
 ```bash
 go install github.com/SPDG/unicli/cmd/unicli@latest
+unicli completion install bash   # then restart shell / source ~/.bashrc
 ```
 
 Prebuilt releases will appear on the [Releases](https://github.com/SPDG/unicli/releases) page.
@@ -34,8 +34,11 @@ unicli network devices stats <device-id> --json
 unicli network devices restart <id>              # blocked without --allow-mutations
 unicli network devices restart <id> --allow-mutations --yes
 unicli network ports cycle <device-id> <port> --allow-mutations --yes
-unicli protect info --json
 unicli protect cameras list --json --select totalCount,cameras
+unicli access info --json   # exit 11 if Access is not installed
+unicli completion install bash
+
+# Multiple gateways via named profiles
 printf %s "$UNIFI_API_KEY" | unicli auth login --profile home --host https://192.168.1.1 --insecure
 unicli profile use home
 ```

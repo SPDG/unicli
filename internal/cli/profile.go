@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -64,9 +65,10 @@ func newProfileListCmd() *cobra.Command {
 
 func newProfileUseCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "use <name>",
-		Short: "Set the current gateway profile",
-		Args:  cobra.ExactArgs(1),
+		Use:               "use <name>",
+		Short:             "Set the current gateway profile",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeProfileNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, path, err := loadConfig()
 			if err != nil {
@@ -89,9 +91,10 @@ func newProfileUseCmd() *cobra.Command {
 
 func newProfileShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show [name]",
-		Short: "Show a profile (default: current)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:               "show [name]",
+		Short:             "Show a profile (default: current)",
+		Args:              cobra.MaximumNArgs(1),
+		ValidArgsFunction: completeProfileNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, err := loadConfig()
 			if err != nil {
@@ -160,9 +163,10 @@ func newProfileSetCmd() *cobra.Command {
 
 func newProfileDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete a gateway profile and its stored API key",
-		Args:  cobra.ExactArgs(1),
+		Use:               "delete <name>",
+		Short:             "Delete a gateway profile and its stored API key",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeProfileNames,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, path, err := loadConfig()
 			if err != nil {
@@ -191,4 +195,18 @@ func newProfileDeleteCmd() *cobra.Command {
 			})
 		},
 	}
+}
+
+func completeProfileNames(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	cfg, _, err := loadConfig()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	out := make([]string, 0, len(cfg.Profiles))
+	for name := range cfg.Profiles {
+		if toComplete == "" || strings.HasPrefix(name, toComplete) {
+			out = append(out, name)
+		}
+	}
+	return out, cobra.ShellCompDirectiveNoFileComp
 }
