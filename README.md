@@ -6,15 +6,16 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-v0.3: Network (stable — Integration plus controller REST/v2 gaps), Protect cameras/NVR/liveviews (beta), Access doors/users/visitors/devices (beta; exit 11 if the app is missing).
+v0.4: Network (stable — Integration plus controller REST/v2 gaps, client/port diagnostics and topology path), Protect cameras/NVR/liveviews (beta), Access (beta; exit 11 if the app is missing), UniFi OS console status.
 
 ## Capability matrix
 
 | App | Status | Commands |
 |-----|--------|----------|
-| Network | stable | VLANs, WiFi, firewall, ACL, DNS, routes, ports, DHCP, port forwards, clients, devices |
+| Network | stable | VLANs, WiFi, firewall, ACL, DNS, routes, ports, DHCP, port forwards, clients, devices, topology/diagnose |
 | Protect | beta | info, nvr, cameras (list/get/snapshot/stream/restart/set/update), liveviews, lights, sensors, chimes, viewers |
 | Access | beta | doors (list/get/lock/unlock), users, visitors, devices, policies, groups (exit 11 if the app is missing) |
+| Console | beta | status (hardware + app versions), updates (may 401), reboot (mutation) |
 
 Mutations require `--allow-mutations` (and `--yes` when non-interactive).
 
@@ -38,7 +39,9 @@ export UNIFI_HOST=https://192.168.1.1
 export UNIFI_API_KEY=…
 export UNIFI_INSECURE=1   # lab / self-signed
 
-unicli doctor --json
+unicli --version
+unicli version --json
+unicli console status --json
 unicli network info --json
 unicli network devices list --json --select siteId,page
 unicli network devices stats <device-id> --json
@@ -46,7 +49,9 @@ unicli network networks list --json --all
 unicli network wifi get Office --json
 unicli network networks create --allow-mutations --yes --network-name IoT --vlan-id 30 --management UNMANAGED
 unicli network port-forwards list --json
-unicli network ports list --json --all
+unicli network ports find --mac aa:bb:cc:dd:ee:ff --json
+unicli network diagnose --client 192.168.20.28 --json
+unicli network topology path cam-01 pi-4 --json
 unicli network dhcp reservations --json
 unicli network health --json
 # Mutations are gated:

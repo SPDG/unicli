@@ -54,14 +54,29 @@ func newNetworkHealthCmd() *cobra.Command {
 		Use:   "health",
 		Short: "Subsystem health (WLAN, WAN, LAN, VPN, …)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withLegacySite(cmd, func(api *network.API, slug string) error {
+			return withDiagSite(cmd, func(api *network.API, siteID, slug string) error {
 				items, err := api.StatHealth(cmd.Context(), slug)
 				if err != nil {
 					return mapAPIErr(err)
 				}
-				page := network.SlicePage(items, 0, len(items), true)
-				rows := rawRows(page.Data, "subsystem", "status", "num_user", "num_guest")
-				return printList(cmd, legacyWrap("health", slug, page), []string{"SUBSYSTEM", "STATUS", "USERS", "GUESTS"}, rows, 0, len(rows), len(rows))
+				vpnServers, vpnTunnels := 0, 0
+				if page, err := api.VPNServers(cmd.Context(), siteID, 0, 1); err == nil {
+					vpnServers = page.TotalCount
+				}
+				if page, err := api.VPNTunnels(cmd.Context(), siteID, 0, 1); err == nil {
+					vpnTunnels = page.TotalCount
+				}
+				annotated := network.AnnotateHealth(items, vpnServers, vpnTunnels)
+				rows := make([][]string, 0, len(annotated))
+				for _, h := range annotated {
+					rows = append(rows, []string{h.Subsystem, h.Status, anyString(h.Users), anyString(h.Guests)})
+				}
+				out := legacyWrap("health", slug, map[string]any{
+					"subsystems": annotated,
+					"vpnServers": vpnServers,
+					"vpnTunnels": vpnTunnels,
+				})
+				return printList(cmd, out, []string{"SUBSYSTEM", "STATUS", "USERS", "GUESTS"}, rows, 0, len(rows), len(rows))
 			})
 		},
 	}
@@ -152,7 +167,8 @@ func newNetworkDHCPCmd() *cobra.Command {
 }
 
 func newPortsListCmd() *cobra.Command {
-	return &cobra.Command{
+	var compact bool
+	cmd := &cobra.Command{
 		Use:   "list [device]",
 		Short: "List switch ports (optionally one device)",
 		Args:  cobra.MaximumNArgs(1),
@@ -168,6 +184,38 @@ func newPortsListCmd() *cobra.Command {
 						return err
 					}
 					devs = []map[string]any{dev}
+				}
+				if compact {
+					var views []network.PortView
+					for _, d := range devs {
+						raw, _ := d["port_table"].([]any)
+						for _, item := range raw {
+							p, ok := item.(map[string]any)
+							if !ok {
+								continue
+							}
+							view := network.CompactPort(d, p)
+							if rootOpts.filterName != "" && !matchName(view.Device+" "+view.Name, rootOpts.filterName) {
+								continue
+							}
+							views = append(views, view)
+						}
+					}
+					paged := network.SlicePage(network.PortViewsAsMaps(views), rootOpts.offset, rootOpts.limit, rootOpts.allPages)
+					rows := make([][]string, 0, len(paged.Data))
+					for _, item := range paged.Data {
+						rows = append(rows, []string{
+							anyString(item["device"]),
+							anyString(item["port"]),
+							anyString(item["name"]),
+							anyString(item["up"]),
+							anyString(item["speedMbps"]),
+							anyString(item["poe"]),
+						})
+					}
+					return printList(cmd, legacyWrap("device-ports", slug, paged),
+						[]string{"DEVICE", "PORT", "NAME", "UP", "SPEED", "POE"},
+						rows, paged.Offset, paged.Count, paged.TotalCount)
 				}
 				var flat []map[string]any
 				for _, d := range devs {
@@ -207,6 +255,8 @@ func newPortsListCmd() *cobra.Command {
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&compact, "compact", false, "emit unified port fields instead of raw port_table blobs")
+	return cmd
 }
 
 func newPortsSetCmd() *cobra.Command {

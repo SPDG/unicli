@@ -24,7 +24,10 @@ Prefer Integration-backed commands when both exist. Other Network commands fill 
 ```bash
 unicli doctor --json
 unicli schema --json
-unicli network devices list --json --limit 50
+unicli console status --json
+unicli network health --json
+unicli network diagnose --client 192.168.20.28 --json
+unicli network topology path 192.168.20.28 192.168.5.221 --json
 unicli network networks list --json --all
 unicli network wifi get Office --json
 unicli network firewall zones list --json

@@ -27,6 +27,13 @@ func TestJSONRedactsPassphrases(t *testing.T) {
 	}
 }
 
+func TestJSONRedactsPINCodes(t *testing.T) {
+	out := JSON(map[string]any{"pin_code": "1234", "name": "Ada"}).(map[string]any)
+	if out["pin_code"] != placeholder || out["name"] != "Ada" {
+		t.Fatalf("%v", out)
+	}
+}
+
 func TestJSONLeavesNonSecrets(t *testing.T) {
 	in := map[string]any{"enabled": true, "vlanId": 24.0}
 	out := JSON(in).(map[string]any)

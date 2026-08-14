@@ -56,6 +56,14 @@ func TestVersionAndSchemaJSON(t *testing.T) {
 		t.Fatalf("%v %s", err, out)
 	}
 
+	out, _, err = execCLI(t, "--version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out) != ver["version"] {
+		t.Fatalf("--version=%q want %q", out, ver["version"])
+	}
+
 	out, _, err = execCLI(t, "schema", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -201,6 +209,51 @@ func TestDoctorAgainstMockConsole(t *testing.T) {
 	}
 	if report["access_available"] != false {
 		t.Fatalf("access should be unavailable: %v", report)
+	}
+}
+
+func TestConsoleStatusAndUpdates(t *testing.T) {
+	clearUnifiEnv(t)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/system", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"name":"lab","deviceState":"CONNECTED","hasInternet":true,"cloudConnected":true,"hardware":{"shortname":"UDMPRO"}}`))
+	})
+	mux.HandleFunc("/api/apps", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"apps":[],"controllers":[]}`))
+	})
+	mux.HandleFunc("/api/firmware/update", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"code":"UNAUTHORIZED"}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/info", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"applicationVersion":"10.0.0"}`))
+	})
+	mux.HandleFunc("/proxy/protect/integration/v1/meta/info", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"applicationVersion":"7.0.0"}`))
+	})
+	mux.HandleFunc("/proxy/access/api/v2/doors", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"code":"CODE_NOT_FOUND"}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "console", "status", "--json")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	if !strings.Contains(out, `"UDMPRO"`) || !strings.Contains(out, `"network"`) {
+		t.Fatal(out)
+	}
+	_, _, err = execCLI(t, "console", "updates", "--json")
+	if exitCode(err) != exitcode.Permission {
+		t.Fatalf("updates code=%d err=%v", exitCode(err), err)
+	}
+	_, _, err = execCLI(t, "console", "reboot", "--json")
+	if exitCode(err) != exitcode.MutationBlocked {
+		t.Fatalf("reboot code=%d err=%v", exitCode(err), err)
 	}
 }
 
@@ -592,6 +645,86 @@ func TestProtectNVRArmAndCameraLCD(t *testing.T) {
 		t.Fatalf("lcd %v %s", err, out)
 	}
 	if !strings.Contains(out, `"WELCOME"`) {
+		t.Fatal(out)
+	}
+}
+
+func TestNetworkDiagnosePathAndPortsFind(t *testing.T) {
+	clearUnifiEnv(t)
+	t.Cleanup(func() { rootOpts = rootOptions{} })
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/integration/v1/sites", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":25,"count":1,"totalCount":1,"data":[{"id":"site-1","internalReference":"default","name":"lab"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/clients", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":200,"count":1,"totalCount":1,"data":[{"id":"c1","name":"pi","ipAddress":"10.0.0.8","macAddress":"11:22:33:44:55:66","type":"WIRED"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/vpn/servers", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":1,"count":0,"totalCount":0,"data":[]}`))
+	})
+	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/vpn/site-to-site-tunnels", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"offset":0,"limit":1,"count":0,"totalCount":0,"data":[]}`))
+	})
+	mux.HandleFunc("/proxy/network/v2/api/site/default/clients/active", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"mac":"11:22:33:44:55:66","ip":"10.0.0.8","display_name":"pi","vlan":20,"sw_port":2,"uplink_mac":"aa:bb:cc:dd:ee:ff","blocked":false,"authorized":true,"status":"online"},{"mac":"11:22:33:44:55:77","ip":"10.0.0.9","display_name":"cam","vlan":20,"sw_port":1,"uplink_mac":"aa:bb:cc:dd:ee:02"}]`))
+	})
+	mux.HandleFunc("/proxy/network/v2/api/site/default/topology", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"vertices":[{"type":"CLIENT","mac":"11:22:33:44:55:66","name":"pi"},{"type":"DEVICE","mac":"aa:bb:cc:dd:ee:ff","name":"SW1","model":"USMINI"},{"type":"DEVICE","mac":"aa:bb:cc:dd:ee:gw","name":"UDM","model":"UDMPRO"},{"type":"DEVICE","mac":"aa:bb:cc:dd:ee:02","name":"SW2","model":"USMINI"},{"type":"CLIENT","mac":"11:22:33:44:55:77","name":"cam"}],"edges":[{"type":"WIRED","downlinkMac":"11:22:33:44:55:66","uplinkMac":"aa:bb:cc:dd:ee:ff","uplinkPortNumber":2,"rateMbps":1000},{"type":"WIRED","downlinkMac":"aa:bb:cc:dd:ee:ff","uplinkMac":"aa:bb:cc:dd:ee:gw","uplinkPortNumber":9,"rateMbps":10000},{"type":"WIRED","downlinkMac":"aa:bb:cc:dd:ee:02","uplinkMac":"aa:bb:cc:dd:ee:gw","uplinkPortNumber":10,"rateMbps":10000},{"type":"WIRED","downlinkMac":"11:22:33:44:55:77","uplinkMac":"aa:bb:cc:dd:ee:02","uplinkPortNumber":1,"rateMbps":1000}]}`))
+	})
+	mux.HandleFunc("/proxy/network/api/s/default/stat/sta", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[]}`))
+	})
+	mux.HandleFunc("/proxy/network/api/s/default/stat/health", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[{"subsystem":"lan","status":"ok","num_user":4},{"subsystem":"vpn","status":"unknown"}]}`))
+	})
+	mux.HandleFunc("/proxy/network/api/s/default/stat/device", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"meta":{"rc":"ok"},"data":[{"_id":"sw1","name":"SW1","mac":"aa:bb:cc:dd:ee:ff","port_table":[{"port_idx":2,"name":"Pi","up":true,"speed":1000,"rx_errors":0,"link_down_count":1}]},{"_id":"sw2","name":"SW2","mac":"aa:bb:cc:dd:ee:02","port_table":[{"port_idx":1,"name":"Cam","up":true,"speed":1000}]},{"_id":"udm","name":"rymowanki-dukielska","mac":"aa:bb:cc:dd:ee:gw","model":"UDMPRO","ip":"185.1.2.3","lan_ip":"192.168.5.1","port_table":[{"port_idx":9,"name":"SFP+","up":true,"speed":10000}]}]}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("UNIFI_HOST", srv.URL)
+	t.Setenv("UNIFI_API_KEY", "k")
+
+	out, _, err := execCLI(t, "network", "clients", "get", "10.0.0.8", "--json")
+	if err != nil {
+		t.Fatalf("get %v %s", err, out)
+	}
+	if !strings.Contains(out, `"vlan": 20`) || !strings.Contains(out, `"Pi"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "network", "ports", "find", "--mac", "11:22:33:44:55:66", "--json")
+	if err != nil {
+		t.Fatalf("find %v %s", err, out)
+	}
+	if !strings.Contains(out, `"Pi"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "network", "topology", "path", "10.0.0.8", "10.0.0.9", "--json")
+	if err != nil {
+		t.Fatalf("path %v %s", err, out)
+	}
+	if !strings.Contains(out, `"found": true`) || !strings.Contains(out, `"UDM"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "network", "topology", "path", "10.0.0.8", "192.168.5.1", "--json")
+	if err != nil {
+		t.Fatalf("path gw %v %s", err, out)
+	}
+	if !strings.Contains(out, `"rymowanki-dukielska"`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "network", "diagnose", "--client", "pi", "--json")
+	if err != nil {
+		t.Fatalf("diagnose %v %s", err, out)
+	}
+	if !strings.Contains(out, `"uplinkPath"`) || !strings.Contains(out, `no VPN servers`) {
+		t.Fatal(out)
+	}
+	out, _, err = execCLI(t, "network", "health", "--json")
+	if err != nil {
+		t.Fatalf("health %v %s", err, out)
+	}
+	if !strings.Contains(out, `no VPN servers`) {
 		t.Fatal(out)
 	}
 }

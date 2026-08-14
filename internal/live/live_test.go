@@ -48,6 +48,10 @@ func TestLiveDoctorAndLists(t *testing.T) {
 	if !strings.Contains(doctor, `"ok": true`) {
 		t.Fatalf("doctor: %s", doctor)
 	}
+	status := run("console", "status", "--json")
+	if !strings.Contains(status, `"system"`) || !strings.Contains(status, `"apps"`) {
+		t.Fatalf("console status: %s", status)
+	}
 	info := run("network", "info", "--json")
 	if !strings.Contains(info, "applicationVersion") {
 		t.Fatalf("info: %s", info)

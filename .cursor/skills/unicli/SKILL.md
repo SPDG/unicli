@@ -28,6 +28,7 @@ Discover live flags and commands with `unicli schema --json` before guessing. Th
 ```bash
 unicli doctor --json
 unicli schema --json
+unicli console status --json
 ```
 
 Then the smallest command that answers the question, for example:
@@ -70,15 +71,18 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 | Firewall zones / policies | `network firewall zones …`, `network firewall policies …` (incl. `logging` PATCH) |
 | ACL / DNS / vouchers / matching lists | `network acl`, `network dns`, `network vouchers`, `network matching-lists` |
 | Static routes / PBR / port profiles / IP groups | `network routes`, `network traffic-routes`, `network port-profiles`, `network lists` |
-| Port forwards / switch ports / DHCP | `network port-forwards`, `network ports list\|set`, `network dhcp reservations` |
+| Port forwards / DHCP | `network port-forwards`, `network dhcp reservations` |
 | Health / DDNS / client groups | `network health`, `network dynamic-dns`, `network client-groups` |
 | Read-only extras | `network vpn`, `network wans`, `network dpi`, `network radius`, `network switching`, `network tags`, `network pending-devices` |
-| Clients | `network clients list\|get` |
+| Clients | `network clients list\|get` (get accepts name/MAC/IP; includes VLAN, switch port, link, auth) |
+| Topology / diagnose | `network topology path <a> <b>`, `network diagnose --client <name|mac|ip>` |
+| Switch ports | `network ports list` (`--compact`), `network ports find --mac\|--ip\|--client` |
 | Devices | `network devices list\|get\|stats` |
 | Sites / app info | `network sites list`, `network info` |
 | Protect cameras / NVR / liveviews | `protect cameras …` (incl. `snapshot`, `stream`, `set`, `update`), `protect nvr` (`arm`/`disarm`), `protect liveviews` |
 | Protect extras | `protect lights`, `protect sensors`, `protect chimes`, `protect viewers` (empty lists if none) |
 | Access | `access doors` (lock/unlock), `access users`, `access visitors`, `access devices`, `access policies`, `access door-groups`, `access user-groups` (exit 11 if Access is missing) |
+| Console | `console status`, `console updates` (API key may lack firmware permission), `console reboot` (mutation; never fire without explicit user intent) |
 
 Some commands fill Integration-API gaps via the local controller REST/v2 API. The CLI surface stays the same; JSON may include `"backend":"legacy-controller"` so agents can tell. Prefer Integration resources when both exist (VLANs, WiFi broadcasts, matching-lists). Firewall policy **list/get** uses v2 so every policy has an id and hit counters (Integration list often omits custom UUIDs).
 

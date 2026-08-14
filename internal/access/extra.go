@@ -11,6 +11,9 @@ import (
 func (a *API) Collection(ctx context.Context, collection string) ([]map[string]any, error) {
 	raw, err := a.getRaw(ctx, accessV2(collection))
 	if err != nil {
+		if isJSONNotFound(err) {
+			return []map[string]any{}, nil
+		}
 		return nil, err
 	}
 	return parseMapList(raw)

@@ -16,6 +16,7 @@ import (
 // mutationTokens are unicli subcommands that change console state.
 var mutationTokens = map[string]struct{}{
 	"restart":     {},
+	"reboot":      {},
 	"cycle":       {},
 	"unlock":      {},
 	"authorize":   {},

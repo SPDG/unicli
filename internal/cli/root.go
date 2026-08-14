@@ -54,7 +54,10 @@ func NewRoot() *cobra.Command {
 		Long:          "Agent-friendly CLI for Ubiquiti UniFi Network, Protect, and Access.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Version:       Version,
 	}
+	root.SetVersionTemplate("{{.Version}}\n")
+	root.Flags().Bool("version", false, "print unicli version")
 	root.CompletionOptions.DisableDefaultCmd = true
 
 	root.PersistentFlags().StringVar(&rootOpts.configPath, "config", "", "config file (default: ~/.config/unicli/config.yaml)")
@@ -86,6 +89,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newProfileCmd())
 	root.AddCommand(newDoctorCmd())
 	root.AddCommand(newSchemaCmd())
+	root.AddCommand(newConsoleCmd())
 	root.AddCommand(newNetworkCmd())
 	root.AddCommand(newProtectCmd())
 	root.AddCommand(newAccessCmd())
@@ -256,6 +260,9 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "version"},
 					{"name": "schema"},
 					{"name": "doctor"},
+					{"name": "console status"},
+					{"name": "console updates"},
+					{"name": "console reboot", "mutation": true, "confirmation_required": true},
 					{"name": "auth login"},
 					{"name": "auth status"},
 					{"name": "auth logout"},
@@ -273,6 +280,8 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "network ports cycle", "mutation": true, "confirmation_required": true},
 					{"name": "network clients list"},
 					{"name": "network clients get"},
+					{"name": "network diagnose"},
+					{"name": "network topology path"},
 					{"name": "network clients authorize", "mutation": true, "confirmation_required": true},
 					{"name": "network clients unauthorize", "mutation": true, "confirmation_required": true},
 					{"name": "network clients kick", "mutation": true, "confirmation_required": true},
@@ -360,6 +369,7 @@ func newSchemaCmd() *cobra.Command {
 					{"name": "network port-forwards update", "mutation": true, "confirmation_required": true, "legacy": true},
 					{"name": "network port-forwards delete", "mutation": true, "confirmation_required": true, "legacy": true},
 					{"name": "network ports list", "legacy": true},
+					{"name": "network ports find", "legacy": true},
 					{"name": "network ports set", "mutation": true, "confirmation_required": true, "legacy": true},
 					{"name": "network dhcp reservations", "legacy": true},
 					{"name": "network dhcp reserve", "mutation": true, "confirmation_required": true, "legacy": true},
@@ -460,8 +470,9 @@ func newDoctorCmd() *cobra.Command {
 				report["protect_error"] = perr.Error()
 			}
 
-			if _, aerr := access.New(c).Info(cmd.Context()); aerr == nil {
+			if ainfo, aerr := access.New(c).Info(cmd.Context()); aerr == nil {
 				report["access_available"] = true
+				report["access_version"] = ainfo.Version
 			} else {
 				report["access_available"] = false
 				report["access_error"] = aerr.Error()

@@ -53,7 +53,7 @@ func newAccessInfoCmd() *cobra.Command {
 				return mapAPIErr(err)
 			}
 			return printValue(cmd, info, func() {
-				fmt.Fprintf(cmd.OutOrStdout(), "available=%v %s\n", info.Available, info.Message)
+				fmt.Fprintf(cmd.OutOrStdout(), "available=%v version=%s %s\n", info.Available, info.Version, info.Message)
 			})
 		},
 	}

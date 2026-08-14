@@ -41,6 +41,8 @@ func newNetworkCmd() *cobra.Command {
 	cmd.AddCommand(newNetworkPortForwardsCmd())
 	cmd.AddCommand(newNetworkDHCPCmd())
 	cmd.AddCommand(newNetworkHealthCmd())
+	cmd.AddCommand(newNetworkDiagnoseCmd())
+	cmd.AddCommand(newNetworkTopologyCmd())
 	cmd.AddCommand(newNetworkSysinfoCmd())
 	cmd.AddCommand(newNetworkDynamicDNSCmd())
 	cmd.AddCommand(newNetworkClientGroupsCmd())
@@ -69,6 +71,22 @@ func withNetworkSite(cmd *cobra.Command, fn func(api *network.API, siteID string
 		return mapAPIErr(err)
 	}
 	return fn(api, siteID)
+}
+
+func withDiagSite(cmd *cobra.Command, fn func(api *network.API, siteID, slug string) error) error {
+	api, preferredSite, err := openNetwork()
+	if err != nil {
+		return err
+	}
+	siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
+	if err != nil {
+		return mapAPIErr(err)
+	}
+	slug, err := api.LegacySiteSlug(cmd.Context(), preferredSite)
+	if err != nil {
+		return mapAPIErr(err)
+	}
+	return fn(api, siteID, slug)
 }
 
 func openNetwork() (*network.API, string, error) {
@@ -250,6 +268,7 @@ func newNetworkPortsCmd() *cobra.Command {
 		Short: "Switch port commands",
 	}
 	cmd.AddCommand(newPortsListCmd())
+	cmd.AddCommand(newPortsFindCmd())
 	cmd.AddCommand(newPortsSetCmd())
 	cmd.AddCommand(&cobra.Command{
 		Use:   "cycle <device-id> <port-idx>",
@@ -322,24 +341,26 @@ func newNetworkClientsCmd() *cobra.Command {
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get <client-id>",
-		Short: "Get client details",
+		Use:   "get <client-id|name|mac|ip>",
+		Short: "Get client details (switch/port, VLAN, link, auth)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			api, preferredSite, err := openNetwork()
-			if err != nil {
-				return err
-			}
-			siteID, err := resolveSiteID(cmd.Context(), api, preferredSite)
-			if err != nil {
-				return mapAPIErr(err)
-			}
-			cl, err := api.Client(cmd.Context(), siteID, args[0])
-			if err != nil {
-				return mapAPIErr(err)
-			}
-			return printValue(cmd, cl, func() {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s\n", cl.ID, cl.Name, cl.IPAddress)
+			return withDiagSite(cmd, func(api *network.API, siteID, slug string) error {
+				view, err := api.LookupClientView(cmd.Context(), siteID, slug, args[0])
+				if err != nil {
+					return exitf(exitcode.NotFound, "%v", err)
+				}
+				return printValue(cmd, view, func() {
+					up := ""
+					if view.Uplink != nil {
+						up = fmt.Sprintf(" %s p%s", view.Uplink.Device, anyString(derefInt(view.Uplink.Port)))
+					}
+					vlan := ""
+					if view.VLAN != nil {
+						vlan = fmt.Sprintf(" vlan %d", *view.VLAN)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s%s%s\n", view.Name, view.IPAddress, view.MacAddress, vlan, up)
+				})
 			})
 		},
 	})

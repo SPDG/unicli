@@ -11,6 +11,8 @@ var secretKeys = map[string]struct{}{
 	"api_key":       {},
 	"presharedkey":  {},
 	"presharedkeys": {},
+	"pincode":       {},
+	"nfctoken":      {},
 }
 
 const placeholder = "[redacted]"

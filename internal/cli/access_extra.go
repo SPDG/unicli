@@ -33,7 +33,7 @@ func newAccessCollectionCmd(use, short, collection string) *cobra.Command {
 			total := len(filtered)
 			start, end := sliceBounds(total)
 			page := filtered[start:end]
-			out := map[string]any{"count": len(page), "totalCount": total, use: page}
+			out := map[string]any{"count": len(page), "totalCount": total, use: maybeRedact(page)}
 			rows := make([][]string, 0, len(page))
 			for _, item := range page {
 				rows = append(rows, []string{access.ItemName(item), anyString(item["type"]), anyString(item["status"]), access.ItemID(item)})
@@ -62,12 +62,12 @@ func newAccessCollectionCmd(use, short, collection string) *cobra.Command {
 			if err != nil {
 				for _, it := range items {
 					if access.ItemID(it) == id {
-						return printValue(cmd, it, nil)
+						return printValue(cmd, maybeRedact(it), nil)
 					}
 				}
 				return mapAPIErr(err)
 			}
-			return printValue(cmd, item, nil)
+			return printValue(cmd, maybeRedact(item), nil)
 		},
 	})
 	return cmd

@@ -24,11 +24,18 @@ func TestParseListShapes(t *testing.T) {
 	if err != nil || items[0].Name != "Side" {
 		t.Fatalf("%v %+v", err, items)
 	}
+	num, err := parseList[Door](json.RawMessage(`{"code":0,"data":[{"id":"d4","name":"Garage"}]}`))
+	if err != nil || num[0].ID != "d4" {
+		t.Fatalf("numeric code %v %+v", err, num)
+	}
 }
 
 func TestDoorsAndUnlock(t *testing.T) {
 	var unlocked string
 	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/access/api/v2/info", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 1, "data": map[string]any{"version": "v4.0.0"}})
+	})
 	mux.HandleFunc("/proxy/access/api/v2/doors", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode([]Door{{ID: "door-1", Name: "Front"}})
 	})
@@ -110,5 +117,56 @@ func TestInfoWhenAccessMissing(t *testing.T) {
 	var ue client.AppUnavailableError
 	if !errors.As(err, &ue) {
 		t.Fatalf("want AppUnavailableError, got %T %v", err, err)
+	}
+}
+
+func TestInfoWhenAccess404(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"code":"CODE_NOT_FOUND","msg":"no-man zone"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := client.New(srv.URL, "k", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = New(c).Info(context.Background())
+	var ue client.AppUnavailableError
+	if !errors.As(err, &ue) {
+		t.Fatalf("want AppUnavailableError, got %T %v", err, err)
+	}
+}
+
+func TestInfoReadsVersion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/proxy/access/api/v2/info" {
+			t.Errorf("path=%s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"code":1,"codeS":"SUCCESS","data":{"version":"v4.3.5","configured":true}}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := client.New(srv.URL, "k", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := New(c).Info(context.Background())
+	if err != nil || !info.Available || info.Version != "v4.3.5" {
+		t.Fatalf("%v %+v", err, info)
+	}
+}
+
+func TestDoorsJSON404IsEmpty(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"code":404,"codeS":"CODE_NOT_FOUND","msg":"The API was not found."}`))
+	}))
+	t.Cleanup(srv.Close)
+	c, err := client.New(srv.URL, "k", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doors, err := New(c).Doors(context.Background())
+	if err != nil || len(doors) != 0 {
+		t.Fatalf("%v %+v", err, doors)
 	}
 }

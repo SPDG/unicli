@@ -3,6 +3,7 @@ package access
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -36,7 +37,8 @@ type Door struct {
 }
 
 type User struct {
-	ID        string `json:"id"`
+	ID        string `json:"id,omitempty"`
+	UniqueID  string `json:"unique_id,omitempty"`
 	Name      string `json:"name,omitempty"`
 	FirstName string `json:"first_name,omitempty"`
 	LastName  string `json:"last_name,omitempty"`
@@ -45,24 +47,39 @@ type User struct {
 }
 
 type doorsEnvelope struct {
-	Code   string          `json:"code"`
-	Msg    string          `json:"msg"`
-	Data   json.RawMessage `json:"data"`
+	Code json.RawMessage `json:"code"`
+	Msg  string          `json:"msg"`
+	Data json.RawMessage `json:"data"`
 }
 
 func (a *API) Info(ctx context.Context) (*Info, error) {
-	// Prefer a light probe that fails closed when Access is not installed.
 	var raw json.RawMessage
-	err := a.c.GetPathJSON(ctx, "/proxy/access/api/v2/doors", nil, &raw)
+	err := a.c.GetPathJSON(ctx, "/proxy/access/api/v2/info", nil, &raw)
 	if err != nil {
-		return nil, err
+		var ue client.AppUnavailableError
+		if errors.As(err, &ue) {
+			return nil, ue
+		}
+		return nil, mapUnavailable(err, "/proxy/access/api/v2/info")
 	}
-	return &Info{Available: true, Message: "Access API reachable via UniFi OS proxy"}, nil
+	version := ""
+	var env doorsEnvelope
+	if json.Unmarshal(raw, &env) == nil && len(env.Data) > 0 {
+		var data struct {
+			Version string `json:"version"`
+		}
+		_ = json.Unmarshal(env.Data, &data)
+		version = data.Version
+	}
+	return &Info{Available: true, Version: version, Message: "Access API reachable via UniFi OS proxy"}, nil
 }
 
 func (a *API) Doors(ctx context.Context) ([]Door, error) {
 	raw, err := a.getRaw(ctx, "/proxy/access/api/v2/doors")
 	if err != nil {
+		if isJSONNotFound(err) {
+			return []Door{}, nil
+		}
 		return nil, err
 	}
 	return parseList[Door](raw)
@@ -73,7 +90,16 @@ func (a *API) Users(ctx context.Context) ([]User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseList[User](raw)
+	users, err := parseList[User](raw)
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		if users[i].ID == "" {
+			users[i].ID = users[i].UniqueID
+		}
+	}
+	return users, nil
 }
 
 func (a *API) User(ctx context.Context, id string) (*User, error) {
@@ -114,6 +140,23 @@ func (a *API) getRaw(ctx context.Context, path string) (json.RawMessage, error) 
 		return nil, err
 	}
 	return raw, nil
+}
+
+func mapUnavailable(err error, path string) error {
+	var ue client.AppUnavailableError
+	if errors.As(err, &ue) {
+		return err
+	}
+	var ae client.APIError
+	if errors.As(err, &ae) && (ae.Status == 404 || ae.Status == 502 || ae.Status == 503) {
+		return client.AppUnavailableError{Path: path, Status: ae.Status}
+	}
+	return err
+}
+
+func isJSONNotFound(err error) bool {
+	var ae client.APIError
+	return errors.As(err, &ae) && ae.Status == 404
 }
 
 func parseList[T any](raw json.RawMessage) ([]T, error) {
