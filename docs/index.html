@@ -212,11 +212,16 @@
 
     <section id="install">
       <h2>Install</h2>
-      <pre><span class="c"># tagged binary (recommended)</span>
+      <pre><span class="c"># Homebrew (macOS and Linux) — unicli + unicli-mcp</span>
+brew tap SPDG/tap
+brew install unicli
+
+<span class="c"># or Go (needs a recent toolchain)</span>
 go install github.com/SPDG/unicli/cmd/unicli@latest
 go install github.com/SPDG/unicli/cmd/unicli-mcp@latest
+
 unicli completion install bash   <span class="c"># then restart the shell</span></pre>
-      <p>Prebuilt archives live on <a href="https://github.com/SPDG/unicli/releases">GitHub Releases</a>. API keys never go on argv — use <code>UNIFI_API_KEY</code> or <code>unicli auth login</code> with the key on stdin.</p>
+      <p>Prebuilt archives for Linux, macOS, and Windows are on <a href="https://github.com/SPDG/unicli/releases/tag/v0.4.0">GitHub Releases</a> (current: v0.4.0). API keys never go on argv — use <code>UNIFI_API_KEY</code> or <code>unicli auth login</code> with the key on stdin.</p>
       <pre><span class="c"># env wins over the selected profile</span>
 export UNIFI_HOST=https://192.168.1.1
 export UNIFI_API_KEY=…

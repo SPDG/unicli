@@ -59,3 +59,25 @@ release:
   github:
     owner: SPDG
     name: unicli
+
+# Publishes Formula/unicli.rb to SPDG/homebrew-tap when TAP_GITHUB_TOKEN is set
+# (PAT/fine-grained token with contents:write on that repo). Without it the
+# release still succeeds; bump the formula by hand until the secret exists.
+brews:
+  - name: unicli
+    ids:
+      - unicli
+      - unicli-mcp
+    repository:
+      owner: SPDG
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://spdg.github.io/unicli/
+    description: Agent-friendly CLI for UniFi Network, Protect, and Access
+    license: MIT
+    skip_upload: '{{ if index .Env "TAP_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
+    extra_install: |
+      bin.install "unicli-mcp"
+    test: |
+      system "#{bin}/unicli", "--version"

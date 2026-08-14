@@ -28,12 +28,17 @@ On a TTY, list commands print an aligned table plus a footer (`23 items` or `sho
 ## Install
 
 ```bash
+# Homebrew (macOS and Linux) — installs unicli and unicli-mcp
+brew tap SPDG/tap
+brew install unicli
+
+# or Go
 go install github.com/SPDG/unicli/cmd/unicli@latest
 go install github.com/SPDG/unicli/cmd/unicli-mcp@latest
 unicli completion install bash   # then restart shell / source ~/.bashrc
 ```
 
-Prebuilt releases will appear on the [Releases](https://github.com/SPDG/unicli/releases) page.
+Prebuilt archives (Linux, macOS, Windows) are on [Releases](https://github.com/SPDG/unicli/releases) — current: [v0.4.0](https://github.com/SPDG/unicli/releases/tag/v0.4.0).
 
 ## Quick start
 
