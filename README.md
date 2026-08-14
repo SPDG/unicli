@@ -1,6 +1,10 @@
+<p align="center">
+  <a href="https://spdg.github.io/unicli/"><img src="docs/logo.png" width="96" height="96" alt="unicli"></a>
+</p>
+
 # unicli
 
-Agent-friendly CLI for Ubiquiti UniFi **Network**, **Protect**, and **Access**.
+Agent-friendly CLI for Ubiquiti UniFi **Network**, **Protect**, and **Access**. Site: [spdg.github.io/unicli](https://spdg.github.io/unicli/).
 
 One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 

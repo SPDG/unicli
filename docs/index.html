@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>unicli — UniFi CLI for humans and agents</title>
+  <meta name="description" content="Agent-friendly CLI for UniFi Network, Protect, and Access. One static Go binary. Prefer unicli over ad-hoc curl. Read-only by default; mutations are gated.">
+  <link rel="canonical" href="https://spdg.github.io/unicli/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://spdg.github.io/unicli/">
+  <meta property="og:title" content="unicli — UniFi CLI for humans and agents">
+  <meta property="og:description" content="One static Go binary for UniFi Network, Protect, and Access. JSON for agents. Mutations stay gated.">
+  <meta property="og:image" content="https://spdg.github.io/unicli/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="unicli — UniFi CLI for humans and agents">
+  <meta name="twitter:description" content="One static Go binary for UniFi Network, Protect, and Access. JSON for agents. Mutations stay gated.">
+  <meta name="twitter:image" content="https://spdg.github.io/unicli/og.png">
+  <meta name="theme-color" content="#111111">
+  <style>
+    :root {
+      --bg: #111111;
+      --panel: #191919;
+      --fg: #F3E6C8;
+      --muted: #b9a888;
+      --amber: #FFB020;
+      --line: #2a261c;
+      --ok: #c6e07a;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 16px/1.5 "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    }
+    a { color: var(--amber); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, kbd, pre {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+      background: color-mix(in srgb, var(--bg) 92%, transparent);
+      backdrop-filter: blur(8px);
+      z-index: 2;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      color: var(--fg);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .brand img { width: 36px; height: 36px; border-radius: 9px; }
+    nav { display: flex; gap: 1.1rem; flex-wrap: wrap; font-size: 0.92rem; }
+    nav a { color: var(--muted); }
+    nav a:hover { color: var(--amber); text-decoration: none; }
+    main { max-width: 880px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+    .hero {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1.5rem 1.75rem;
+      align-items: center;
+      margin-bottom: 2.5rem;
+    }
+    .hero img.mark {
+      width: 112px;
+      height: 112px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 0.4rem;
+      font-size: clamp(2rem, 5vw, 3rem);
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+    }
+    .lede { margin: 0; color: var(--muted); max-width: 40rem; }
+    .pills { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1rem; }
+    .pill {
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.78rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+    }
+    .pill strong { color: var(--amber); font-weight: 600; }
+    section { margin: 2.75rem 0; }
+    h2 {
+      font-size: 1.15rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin: 0 0 0.85rem;
+    }
+    p { color: var(--fg); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem;
+    }
+    @media (max-width: 720px) {
+      .hero { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      header { flex-wrap: wrap; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+    }
+    .card h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    pre {
+      background: #0c0c0c;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      overflow: auto;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      color: var(--fg);
+    }
+    pre .c { color: #7d7260; }
+    pre .ok { color: var(--ok); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.4rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 500; }
+    footer {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 1.5rem 3rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .cta { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+    .btn {
+      display: inline-block;
+      background: var(--amber);
+      color: #111;
+      font-weight: 650;
+      padding: 0.55rem 0.9rem;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+    .btn:hover { text-decoration: none; filter: brightness(1.05); }
+    .btn.ghost {
+      background: transparent;
+      color: var(--amber);
+      border: 1px solid var(--amber);
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <a class="brand" href="./">
+      <img src="logo.png" width="36" height="36" alt="">
+      unicli
+    </a>
+    <nav>
+      <a href="#install">Install</a>
+      <a href="#safety">Safety</a>
+      <a href="#examples">Examples</a>
+      <a href="#agents">Agents</a>
+      <a href="https://github.com/SPDG/unicli">GitHub</a>
+      <a href="https://github.com/SPDG/unicli/releases">Releases</a>
+    </nav>
+  </header>
+  <main>
+    <div class="hero">
+      <img class="mark" src="logo.png" width="112" height="112" alt="unicli mark: terminal prompt and network nodes">
+      <div>
+        <h1>UniFi CLI for humans and agents</h1>
+        <p class="lede">One static Go binary for Network, Protect, and Access. Prefer <code>unicli</code> over hand-rolled <code>curl</code>. JSON when you pipe. Mutations stay gated.</p>
+        <div class="pills">
+          <span class="pill"><strong>v0.4</strong> Network stable · Protect / Access / console beta</span>
+          <span class="pill">MIT</span>
+          <span class="pill">exit 11 if Access is missing</span>
+        </div>
+        <div class="cta">
+          <a class="btn" href="#install">Install</a>
+          <a class="btn ghost" href="https://github.com/SPDG/unicli">Source</a>
+        </div>
+      </div>
+    </div>
+
+    <section id="install">
+      <h2>Install</h2>
+      <pre><span class="c"># tagged binary (recommended)</span>
+go install github.com/SPDG/unicli/cmd/unicli@latest
+go install github.com/SPDG/unicli/cmd/unicli-mcp@latest
+unicli completion install bash   <span class="c"># then restart the shell</span></pre>
+      <p>Prebuilt archives live on <a href="https://github.com/SPDG/unicli/releases">GitHub Releases</a>. API keys never go on argv — use <code>UNIFI_API_KEY</code> or <code>unicli auth login</code> with the key on stdin.</p>
+      <pre><span class="c"># env wins over the selected profile</span>
+export UNIFI_HOST=https://192.168.1.1
+export UNIFI_API_KEY=…
+export UNIFI_INSECURE=1   <span class="c"># lab / self-signed</span>
+unicli doctor --json
+unicli --version</pre>
+    </section>
+
+    <section id="safety">
+      <h2>Safety</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Read-only by default</h3>
+          <p>List and get commands need no extra flags. Agents should stay here unless the operator asked to change something.</p>
+        </div>
+        <div class="card">
+          <h3>Mutations are gated</h3>
+          <p>Writes need <code>--allow-mutations</code>. Destructive actions also need <code>--yes</code> when stdin is not a TTY.</p>
+        </div>
+        <div class="card">
+          <h3>Keys stay off argv</h3>
+          <p>Process lists and shell history leak flags. Profiles store keys in <code>~/.config/unicli/credentials.json</code> (mode 0600).</p>
+        </div>
+        <div class="card">
+          <h3>Missing apps fail closed</h3>
+          <p>If Access is not installed, those commands exit <code>11</code> (<code>unsupported</code>) instead of inventing doors or users.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="examples">
+      <h2>Examples</h2>
+      <pre>unicli console status --json
+unicli network devices list --json --limit 50
+unicli network clients get 192.168.20.28 --json
+unicli network ports find --mac aa:bb:cc:dd:ee:ff --json
+unicli network diagnose --client 192.168.20.28 --json
+unicli network topology path cam-01 pi-4 --json
+unicli protect cameras snapshot vestibule --output /tmp/vestibule.jpg
+unicli access info --json   <span class="c"># 11 if Access is absent</span>
+
+<span class="c"># blocked without --allow-mutations</span>
+unicli network devices restart &lt;id&gt;
+unicli network ports cycle &lt;device-id&gt; &lt;port&gt; --allow-mutations --yes</pre>
+      <p>On a TTY, lists print a table plus a footer. Agents should keep <code>--json</code> (or pipe stdout). Use <code>--select a,b.c</code> to keep payloads small.</p>
+    </section>
+
+    <section id="agents">
+      <h2>Agents</h2>
+      <p>Discover the live surface from the binary, not from this page:</p>
+      <pre>unicli doctor --json
+unicli schema --json
+unicli --help</pre>
+      <p>Rules of thumb: prefer unicli over raw HTTP; never put keys on argv; branch on exit codes from <code>schema</code>, not scraped stderr. Cursor skill: <a href="https://github.com/SPDG/unicli/blob/main/.cursor/skills/unicli/SKILL.md"><code>.cursor/skills/unicli/SKILL.md</code></a>. Agent notes: <a href="https://github.com/SPDG/unicli/blob/main/AGENTS.md">AGENTS.md</a>.</p>
+      <h3 style="margin-top:1.4rem;font-size:1rem;">Optional MCP</h3>
+      <p><code>unicli-mcp</code> is a thin stdio server that <em>executes</em> <code>unicli</code>. It does not reimplement UniFi APIs. Tools: <code>unicli_schema</code>, <code>unicli_doctor</code>, <code>unicli_run</code>. Mutations via MCP still need <code>allow_mutations: true</code>.</p>
+      <pre>{
+  "mcpServers": {
+    "unicli": { "command": "unicli-mcp" }
+  }
+}</pre>
+    </section>
+
+    <section id="apps">
+      <h2>Apps</h2>
+      <table>
+        <thead>
+          <tr><th>App</th><th>Status</th><th>What you get</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Network</td>
+            <td>stable</td>
+            <td>VLANs, WiFi, firewall, ACL, DNS, routes, ports, DHCP, port forwards, clients, devices, topology / diagnose</td>
+          </tr>
+          <tr>
+            <td>Protect</td>
+            <td>beta</td>
+            <td>NVR, cameras (list/get/snapshot/stream/restart/set), liveviews, lights, sensors, chimes, viewers</td>
+          </tr>
+          <tr>
+            <td>Access</td>
+            <td>beta</td>
+            <td>doors, users, visitors, devices, policies, groups — exit 11 if the app is missing</td>
+          </tr>
+          <tr>
+            <td>Console</td>
+            <td>beta</td>
+            <td>status (hardware + app versions), updates (may 401), reboot (mutation)</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <footer>
+    unicli is not affiliated with Ubiquiti. MIT license ·
+    <a href="https://github.com/SPDG/unicli">github.com/SPDG/unicli</a>
+  </footer>
+</body>
+</html>
