@@ -65,9 +65,6 @@ release:
 # release still succeeds; bump the formula by hand until the secret exists.
 brews:
   - name: unicli
-    ids:
-      - unicli
-      - unicli-mcp
     repository:
       owner: SPDG
       name: homebrew-tap
