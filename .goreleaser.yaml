@@ -74,7 +74,5 @@ brews:
     description: Agent-friendly CLI for UniFi Network, Protect, and Access
     license: MIT
     skip_upload: '{{ if index .Env "TAP_GITHUB_TOKEN" }}false{{ else }}true{{ end }}'
-    extra_install: |
-      bin.install "unicli-mcp"
     test: |
       system "#{bin}/unicli", "--version"
