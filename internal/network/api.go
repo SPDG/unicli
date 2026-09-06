@@ -35,14 +35,15 @@ type Site struct {
 }
 
 type Device struct {
-	ID         string   `json:"id"`
-	Name       string   `json:"name"`
-	Model      string   `json:"model"`
-	MacAddress string   `json:"macAddress"`
-	IPAddress  string   `json:"ipAddress"`
-	State      string   `json:"state"`
-	Features   []string `json:"features"`
-	Interfaces []string `json:"interfaces"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Model      string `json:"model"`
+	MacAddress string `json:"macAddress"`
+	IPAddress  string `json:"ipAddress"`
+	State      string `json:"state"`
+	// List (overview) returns string arrays; get (details) returns objects.
+	Features   any `json:"features,omitempty"`
+	Interfaces any `json:"interfaces,omitempty"`
 }
 
 type Client struct {

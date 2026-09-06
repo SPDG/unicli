@@ -64,7 +64,11 @@ func TestDevicesClientsAndRestart(t *testing.T) {
 		})
 	})
 	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/devices/dev-1", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(Device{ID: "dev-1", Name: "UDM", Model: "UDM Pro"})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "dev-1", "name": "UDM", "model": "UDM Pro",
+			"features":   map[string]any{"switching": map[string]any{"lags": []any{}}},
+			"interfaces": map[string]any{"ports": []any{map[string]any{"idx": 1, "state": "UP"}}},
+		})
 	})
 	mux.HandleFunc("/proxy/network/integration/v1/sites/site-1/devices/dev-1/statistics/latest", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(DeviceStatistics{UptimeSec: 42, CPUUtilizationPct: 1.5})
@@ -98,6 +102,10 @@ func TestDevicesClientsAndRestart(t *testing.T) {
 	dev, err := api.Device(ctx, "site-1", "dev-1")
 	if err != nil || dev.Model != "UDM Pro" {
 		t.Fatalf("%v %+v", err, dev)
+	}
+	feat, ok := dev.Features.(map[string]any)
+	if !ok || feat["switching"] == nil {
+		t.Fatalf("details features=%T %+v", dev.Features, dev.Features)
 	}
 	stats, err := api.DeviceStatistics(ctx, "site-1", "dev-1")
 	if err != nil || stats.UptimeSec != 42 {
