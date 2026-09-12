@@ -26,6 +26,8 @@ unicli doctor --json
 unicli schema --json
 unicli console status --json
 unicli network health --json
+unicli network traffic wan --start 2026-09-01 --timezone Europe/Warsaw --json
+unicli network traffic clients --start 2026-09-01 --timezone Europe/Warsaw --sort total --top 10 --json
 unicli network diagnose --client 192.168.20.28 --json
 unicli network topology path 192.168.20.28 192.168.5.221 --json
 unicli network networks list --json --all

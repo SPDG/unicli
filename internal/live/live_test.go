@@ -28,6 +28,22 @@ func unicliBin(t *testing.T) string {
 	return bin
 }
 
+func redactTraffic(s string) string {
+	out := strings.NewReplacer("leska", "site", "dukielska", "profile").Replace(s)
+	for {
+		i := strings.Index(out, `"mac": "`)
+		if i < 0 {
+			break
+		}
+		j := strings.Index(out[i+8:], `"`)
+		if j < 0 {
+			break
+		}
+		out = out[:i+8] + "aa:00:00:00:00:00" + out[i+8+j:]
+	}
+	return out
+}
+
 func TestLiveDoctorAndLists(t *testing.T) {
 	if os.Getenv("UNIFI_HOST") == "" || os.Getenv("UNIFI_API_KEY") == "" {
 		t.Skip("set UNIFI_HOST and UNIFI_API_KEY to run live tests")
@@ -39,7 +55,7 @@ func TestLiveDoctorAndLists(t *testing.T) {
 		cmd.Env = os.Environ()
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("%s: %v\n%s", strings.Join(args, " "), err, out)
+			t.Fatalf("%s: %v\n%s", strings.Join(args, " "), err, redactTraffic(string(out)))
 		}
 		return string(out)
 	}
@@ -110,6 +126,20 @@ func TestLiveDoctorAndLists(t *testing.T) {
 	sys := run("network", "sysinfo", "--json")
 	if !strings.Contains(sys, "legacy-controller") && !strings.Contains(sys, "version") {
 		t.Fatalf("sysinfo: %s", sys)
+	}
+	wan := run("network", "traffic", "wan", "--json", "--timezone", "Europe/Warsaw")
+	if !strings.Contains(wan, `"schema": "unicli.network.traffic.wan/v1"`) || !strings.Contains(wan, `"scope": "wan"`) {
+		t.Fatalf("traffic wan: %s", redactTraffic(wan))
+	}
+	if strings.Contains(wan, `"totals": 0`) {
+		t.Fatalf("missing WAN data must not be a bare zero: %s", redactTraffic(wan))
+	}
+	clients := run("network", "traffic", "clients", "--json", "--timezone", "Europe/Warsaw", "--sort", "total", "--top", "5")
+	if !strings.Contains(clients, `"schema": "unicli.network.traffic.clients/v1"`) || !strings.Contains(clients, `"scope": "client-all-traffic"`) {
+		t.Fatalf("traffic clients: %s", redactTraffic(clients))
+	}
+	if strings.Contains(clients, `"Internet"`) {
+		t.Fatalf("must not label client totals as Internet: %s", redactTraffic(clients))
 	}
 
 	cmd := exec.Command(bin, "access", "info", "--json")

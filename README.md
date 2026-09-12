@@ -16,7 +16,7 @@ v0.4.1: Network (stable — Integration plus controller REST/v2 gaps, client/por
 
 | App | Status | Commands |
 |-----|--------|----------|
-| Network | stable | VLANs, WiFi, firewall, ACL, DNS, routes, ports, DHCP, port forwards, clients, devices, topology/diagnose |
+| Network | stable | VLANs, WiFi, firewall, ACL, DNS, routes, ports, DHCP, port forwards, clients, devices, topology/diagnose, live traffic reports |
 | Protect | beta | info, nvr, cameras (list/get/snapshot/stream/restart/set/update), liveviews, lights, sensors, chimes, viewers |
 | Access | beta | doors (list/get/lock/unlock), users, visitors, devices, policies, groups (exit 11 if the app is missing) |
 | Console | beta | status (hardware + app versions), updates (may 401), reboot (mutation) |
@@ -63,6 +63,8 @@ unicli network diagnose --client 192.168.20.28 --json
 unicli network topology path cam-01 pi-4 --json
 unicli network dhcp reservations --json
 unicli network health --json
+unicli network traffic wan --json --timezone Europe/Warsaw
+unicli network traffic clients --json --timezone Europe/Warsaw --sort total --top 10
 # Mutations are gated:
 unicli network devices restart <id>              # blocked without --allow-mutations
 unicli network devices restart <id> --allow-mutations --yes

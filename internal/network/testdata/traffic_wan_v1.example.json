@@ -1,0 +1,67 @@
+{
+  "schema": "unicli.network.traffic.wan/v1",
+  "backend": "legacy-controller",
+  "source": {
+    "kind": "unifi-controller-report",
+    "backend": "legacy-controller",
+    "application_version": "10.6.101",
+    "endpoints": [
+      "POST /proxy/network/api/s/{site}/stat/report/{interval}.site"
+    ],
+    "attrs": ["time", "wan-rx_bytes", "wan-tx_bytes", "wan2-rx_bytes", "wan2-tx_bytes"],
+    "counter_semantics": "WAN-only site counters (wan-rx_bytes download, wan-tx_bytes upload). Integration v1 has no historical traffic reports."
+  },
+  "site": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "internal_reference": "default",
+    "name": "lab"
+  },
+  "observed_at": "2026-09-13T01:20:00+02:00",
+  "timezone": "Europe/Warsaw",
+  "requested_interval": {
+    "start": "2026-09-01T00:00:00+02:00",
+    "end": "2026-09-13T01:20:00+02:00"
+  },
+  "covered_interval": {
+    "start": "2026-09-01T00:00:00+02:00",
+    "end": "2026-09-13T01:20:00+02:00"
+  },
+  "units": {
+    "bytes": "B",
+    "note": "Integer bytes. Raw controller values may be fractional; they are summed as floats and rounded once after aggregation."
+  },
+  "scope": "wan",
+  "totals": {
+    "download_bytes": 123456789,
+    "upload_bytes": 1234567,
+    "total_bytes": 124691356
+  },
+  "coverage": {
+    "status": "complete",
+    "requested": {
+      "start": "2026-09-01T00:00:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00"
+    },
+    "covered": {
+      "start": "2026-09-01T00:00:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00"
+    },
+    "requested_ms": 1046400000,
+    "covered_ms": 1046100000,
+    "gap_ms": 0,
+    "pending_ms": 300000,
+    "completeness": 0.9997,
+    "resolutions_used": ["daily", "hourly", "5minutes"],
+    "gaps": [],
+    "pending": {
+      "start": "2026-09-13T01:15:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00",
+      "reason": "current-interval-open"
+    },
+    "unknown_buckets": 0
+  },
+  "limitations": [
+    "Synthetic fixture. Identities and counters are invented.",
+    "WAN totals use controller site-report counters wan-rx_bytes/wan-tx_bytes."
+  ]
+}

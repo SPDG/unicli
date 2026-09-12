@@ -1,0 +1,95 @@
+{
+  "schema": "unicli.network.traffic.clients/v1",
+  "backend": "legacy-controller",
+  "source": {
+    "kind": "unifi-controller-report",
+    "backend": "legacy-controller",
+    "application_version": "10.6.101",
+    "endpoints": [
+      "POST /proxy/network/api/s/{site}/stat/report/{interval}.user"
+    ],
+    "attrs": ["time", "rx_bytes", "tx_bytes", "wired-rx_bytes", "wired-tx_bytes"],
+    "counter_semantics": "Client-interface historical counters (LAN-inclusive). Not WAN/Internet usage."
+  },
+  "site": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "internal_reference": "default",
+    "name": "lab"
+  },
+  "observed_at": "2026-09-13T01:20:00+02:00",
+  "timezone": "Europe/Warsaw",
+  "requested_interval": {
+    "start": "2026-09-01T00:00:00+02:00",
+    "end": "2026-09-13T01:20:00+02:00"
+  },
+  "covered_interval": {
+    "start": "2026-09-01T00:00:00+02:00",
+    "end": "2026-09-13T01:20:00+02:00"
+  },
+  "units": {
+    "bytes": "B",
+    "note": "Integer bytes. Raw controller values may be fractional; they are summed as floats and rounded once after aggregation."
+  },
+  "scope": "client-all-traffic",
+  "sort": "total",
+  "totals": {
+    "download_bytes": 9000,
+    "upload_bytes": 300,
+    "total_bytes": 9300
+  },
+  "coverage": {
+    "status": "complete",
+    "requested": {
+      "start": "2026-09-01T00:00:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00"
+    },
+    "covered": {
+      "start": "2026-09-01T00:00:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00"
+    },
+    "requested_ms": 1046400000,
+    "covered_ms": 1046100000,
+    "gap_ms": 0,
+    "pending_ms": 300000,
+    "completeness": 0.9997,
+    "resolutions_used": ["daily", "hourly", "5minutes"],
+    "gaps": [],
+    "unknown_buckets": 0
+  },
+  "ranking": {
+    "sort": "total",
+    "partial": true,
+    "bounded": true,
+    "truncated": false,
+    "top": 10,
+    "offset": 0,
+    "returned": 2,
+    "ranked_clients": 3,
+    "note": "Ranking covers every client present in historical user reports for the selected windows, including clients that are currently offline."
+  },
+  "clients": [
+    {
+      "mac": "aa:00:00:00:00:01",
+      "id": "00000000-0000-4000-8000-0000000000aa",
+      "name": "nas",
+      "hostname": "nas.lab",
+      "connected": false,
+      "download_bytes": 8000,
+      "upload_bytes": 100,
+      "total_bytes": 8100
+    },
+    {
+      "mac": "aa:00:00:00:00:02",
+      "id": "00000000-0000-4000-8000-0000000000bb",
+      "name": "laptop",
+      "connected": true,
+      "download_bytes": 1000,
+      "upload_bytes": 200,
+      "total_bytes": 1200
+    }
+  ],
+  "limitations": [
+    "Synthetic fixture. Identities and counters are invented.",
+    "Client counters are LAN-inclusive and must not be labeled Internet usage."
+  ]
+}

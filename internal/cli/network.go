@@ -30,6 +30,7 @@ func newNetworkCmd() *cobra.Command {
 	cmd.AddCommand(newNetworkVPNCmd())
 	cmd.AddCommand(newNetworkWANsCmd())
 	cmd.AddCommand(newNetworkDPICmd())
+	cmd.AddCommand(newNetworkTrafficCmd())
 	cmd.AddCommand(newNetworkRadiusCmd())
 	cmd.AddCommand(newNetworkSwitchingCmd())
 	cmd.AddCommand(newNetworkTagsCmd())
