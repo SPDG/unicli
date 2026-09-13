@@ -10,7 +10,7 @@ One static Go binary. Prefer this over ad-hoc `curl` for humans and AI agents.
 
 ## Status
 
-v0.4.1: Network (stable — Integration plus controller REST/v2 gaps, client/port diagnostics and topology path), Protect cameras/NVR/liveviews (beta), Access (beta; exit 11 if the app is missing), UniFi OS console status.
+v0.5.0: Network (stable — Integration plus controller REST/v2 gaps, live WAN/Internet/client traffic reports, client/port diagnostics and topology path), Protect cameras/NVR/liveviews (beta), Access (beta; exit 11 if the app is missing), UniFi OS console status.
 
 ## Capability matrix
 
@@ -38,7 +38,7 @@ go install github.com/SPDG/unicli/cmd/unicli-mcp@latest
 unicli completion install bash   # then restart shell / source ~/.bashrc
 ```
 
-Prebuilt archives (Linux, macOS, Windows) are on [Releases](https://github.com/SPDG/unicli/releases) — current: [v0.4.1](https://github.com/SPDG/unicli/releases/tag/v0.4.1).
+Prebuilt archives (Linux, macOS, Windows) are on [Releases](https://github.com/SPDG/unicli/releases) — current: [v0.5.0](https://github.com/SPDG/unicli/releases/tag/v0.5.0).
 
 ## Quick start
 
