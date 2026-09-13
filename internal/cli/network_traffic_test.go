@@ -35,6 +35,35 @@ func trafficMock(t *testing.T, report http.HandlerFunc) *httptest.Server {
 		http.Error(w, "wrong site", 500)
 	})
 	mux.HandleFunc("/proxy/network/api/s/default/stat/report/", report)
+	mux.HandleFunc("/proxy/network/v2/api/site/default/traffic", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("internet method=%s", r.Method)
+		}
+		if strings.Contains(r.URL.EscapedPath(), "%3F") {
+			t.Errorf("query encoded into path: %s", r.URL.EscapedPath())
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"total_usage_by_app": []map[string]any{
+				{"application": 65535, "category": 255, "bytes_received": 1000, "bytes_transmitted": 100, "total_bytes": 1100, "client_count": 2},
+				{"application": 185, "category": 20, "bytes_received": 400, "bytes_transmitted": 50, "total_bytes": 450, "client_count": 1},
+			},
+			"client_usage_by_app": []map[string]any{
+				{
+					"client": map[string]any{"mac": "aa:00:00:00:00:01", "name": "nas", "is_wired": true},
+					"usage_by_app": []map[string]any{
+						{"application": 65535, "bytes_received": 500, "bytes_transmitted": 50, "total_bytes": 550},
+						{"application": 185, "bytes_received": 400, "bytes_transmitted": 50, "total_bytes": 450},
+					},
+				},
+				{
+					"client": map[string]any{"mac": "aa:00:00:00:00:02", "name": "laptop", "is_wired": false},
+					"usage_by_app": []map[string]any{
+						{"application": 65535, "bytes_received": 500, "bytes_transmitted": 50, "total_bytes": 550},
+					},
+				},
+			},
+		})
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv
@@ -97,6 +126,26 @@ func TestTrafficWANAndClientsCLI(t *testing.T) {
 		t.Fatalf("unexpected partial: %+v", clients.Ranking)
 	}
 
+	out, _, err = execCLI(t, "network", "traffic", "internet", "--json",
+		"--start", "2026-09-01", "--end", "2026-09-01", "--timezone", "Europe/Warsaw",
+		"--sort", "total", "--top", "10")
+	if err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	var internet network.InternetTrafficReport
+	if err := json.Unmarshal([]byte(out), &internet); err != nil {
+		t.Fatal(err)
+	}
+	if internet.Schema != network.TrafficSchemaInternet || internet.Scope != "internet" || internet.Totals == nil {
+		t.Fatalf("%s", out)
+	}
+	if internet.Totals.DownloadBytes != 1400 || internet.Unidentified == nil || internet.Unidentified.TotalBytes == internet.Totals.TotalBytes {
+		t.Fatalf("unidentified must not be the site total: %s", out)
+	}
+	if len(internet.Clients) != 2 || internet.Clients[0].MAC != "aa:00:00:00:00:01" {
+		t.Fatalf("%s", out)
+	}
+
 	out, _, err = execCLI(t, "network", "traffic", "clients", "--json",
 		"--start", "2026-09-01", "--end", "2026-09-01", "--timezone", "Europe/Warsaw",
 		"--sort", "download", "--top", "1")
@@ -152,10 +201,10 @@ func TestSchemaAdvertisesTraffic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "network traffic wan") || !strings.Contains(out, "network traffic clients") {
+	if !strings.Contains(out, "network traffic wan") || !strings.Contains(out, "network traffic clients") || !strings.Contains(out, "network traffic internet") {
 		t.Fatal(out)
 	}
-	if !strings.Contains(out, network.TrafficSchemaWAN) {
+	if !strings.Contains(out, network.TrafficSchemaWAN) || !strings.Contains(out, network.TrafficSchemaInternet) {
 		t.Fatal(out)
 	}
 }

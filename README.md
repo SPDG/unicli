@@ -63,6 +63,7 @@ unicli network diagnose --client 192.168.20.28 --json
 unicli network topology path cam-01 pi-4 --json
 unicli network dhcp reservations --json
 unicli network health --json
+unicli network traffic internet --json --timezone Europe/Warsaw --sort total --top 10
 unicli network traffic wan --json --timezone Europe/Warsaw
 unicli network traffic clients --json --timezone Europe/Warsaw --sort total --top 10
 # Mutations are gated:

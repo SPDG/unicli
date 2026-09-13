@@ -13,11 +13,12 @@ import (
 )
 
 type trafficCLIFlags struct {
-	start    string
-	end      string
-	timezone string
-	sort     string
-	top      int
+	start               string
+	end                 string
+	timezone            string
+	sort                string
+	top                 int
+	excludeUnidentified bool
 }
 
 func newNetworkTrafficCmd() *cobra.Command {
@@ -26,15 +27,16 @@ func newNetworkTrafficCmd() *cobra.Command {
 		Short: "Live historical traffic reports from the selected controller",
 		Long: `Read-only WAN and per-client traffic reports fetched live from the UniFi controller.
 
-These commands POST /stat/report queries (not configuration mutations) and do not
-require --allow-mutations. Integration v1 has no historical traffic API; unicli uses
-the controller report endpoints and labels counter scope explicitly.
+These commands query live controller APIs (not configuration mutations) and do not
+require --allow-mutations. Integration v1 has no historical traffic API.
 
 Default window is month-to-date in --timezone (or the controller sysinfo timezone).
-Maximum range is 32 calendar days. Client ranking is LAN-inclusive, not Internet usage.`,
+Maximum range is 32 calendar days. network traffic clients is LAN-inclusive.
+network traffic internet is Traffic Identification (Internet/DPI).`,
 	}
 	cmd.AddCommand(newTrafficWANCmd())
 	cmd.AddCommand(newTrafficClientsCmd())
+	cmd.AddCommand(newTrafficInternetCmd())
 	return cmd
 }
 
@@ -44,7 +46,7 @@ func newTrafficWANCmd() *cobra.Command {
 		Use:   "wan",
 		Short: "Site WAN download/upload for a time range",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTraffic(cmd, f, false)
+			return runTraffic(cmd, f, trafficKindWAN)
 		},
 	}
 	addTrafficFlags(cmd, &f, false)
@@ -57,10 +59,24 @@ func newTrafficClientsCmd() *cobra.Command {
 		Use:   "clients",
 		Short: "Rank clients by historical transfer in a time range",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTraffic(cmd, f, true)
+			return runTraffic(cmd, f, trafficKindClients)
 		},
 	}
 	addTrafficFlags(cmd, &f, true)
+	return cmd
+}
+
+func newTrafficInternetCmd() *cobra.Command {
+	var f trafficCLIFlags
+	cmd := &cobra.Command{
+		Use:   "internet",
+		Short: "Internet/DPI site totals and client ranking for a time range",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTraffic(cmd, f, trafficKindInternet)
+		},
+	}
+	addTrafficFlags(cmd, &f, true)
+	cmd.Flags().BoolVar(&f.excludeUnidentified, "exclude-unidentified", false, "omit Unidentified DPI traffic (UI checkbox off)")
 	return cmd
 }
 
@@ -74,10 +90,24 @@ func addTrafficFlags(cmd *cobra.Command, f *trafficCLIFlags, clients bool) {
 	}
 }
 
-func runTraffic(cmd *cobra.Command, f trafficCLIFlags, clients bool) error {
+type trafficKind int
+
+const (
+	trafficKindWAN trafficKind = iota
+	trafficKindClients
+	trafficKindInternet
+)
+
+func runTraffic(cmd *cobra.Command, f trafficCLIFlags, kind trafficKind) error {
 	schema := network.TrafficSchemaWAN
-	if clients {
+	ranked := kind == trafficKindClients || kind == trafficKindInternet
+	switch kind {
+	case trafficKindClients:
 		schema = network.TrafficSchemaClients
+	case trafficKindInternet:
+		schema = network.TrafficSchemaInternet
+	}
+	if ranked {
 		sort := strings.ToLower(strings.TrimSpace(f.sort))
 		switch sort {
 		case "download", "upload", "total":
@@ -134,48 +164,59 @@ func runTraffic(cmd *cobra.Command, f trafficCLIFlags, clients bool) error {
 			return exitf(exitcode.Usage, "%v", err)
 		}
 		q := network.TrafficQuery{
-			Start:      start,
-			End:        end,
-			Location:   loc,
-			Timezone:   tzName,
-			ObservedAt: observed,
-			Sort:       strings.ToLower(strings.TrimSpace(f.sort)),
-			Offset:     rootOpts.offset,
-			Top:        f.top,
-			All:        rootOpts.allPages,
+			Start:               start,
+			End:                 end,
+			Location:            loc,
+			Timezone:            tzName,
+			ObservedAt:          observed,
+			Sort:                strings.ToLower(strings.TrimSpace(f.sort)),
+			Offset:              rootOpts.offset,
+			Top:                 f.top,
+			All:                 rootOpts.allPages,
+			ExcludeUnidentified: f.excludeUnidentified,
 		}
 		if info, err := api.Info(cmd.Context()); err == nil {
 			q.AppVersion = info.ApplicationVersion
 		}
-		if clients {
+		switch kind {
+		case trafficKindClients:
 			rep, err := api.ClientTraffic(cmd.Context(), site, q)
 			if err != nil {
 				return trafficAPIError(cmd, schema, &site, &q, err)
 			}
-			if tzSource == "sysinfo" {
-				rep.Limitations = append([]string{"Timezone taken from controller sysinfo."}, rep.Limitations...)
-			}
-			if tzSource == "utc" {
-				rep.Limitations = append([]string{"Timezone omitted; using UTC."}, rep.Limitations...)
-			}
+			applyTrafficTZNotes(&rep.Limitations, tzSource)
 			return printValue(cmd, rep, func() {
 				printClientTrafficTable(cmd, rep)
 			})
+		case trafficKindInternet:
+			rep, err := api.InternetTraffic(cmd.Context(), site, q)
+			if err != nil {
+				return trafficAPIError(cmd, schema, &site, &q, err)
+			}
+			applyTrafficTZNotes(&rep.Limitations, tzSource)
+			return printValue(cmd, rep, func() {
+				printInternetTrafficTable(cmd, rep)
+			})
+		default:
+			rep, err := api.WANTraffic(cmd.Context(), site, q)
+			if err != nil {
+				return trafficAPIError(cmd, schema, &site, &q, err)
+			}
+			applyTrafficTZNotes(&rep.Limitations, tzSource)
+			return printValue(cmd, rep, func() {
+				printWANTrafficTable(cmd, rep)
+			})
 		}
-		rep, err := api.WANTraffic(cmd.Context(), site, q)
-		if err != nil {
-			return trafficAPIError(cmd, schema, &site, &q, err)
-		}
-		if tzSource == "sysinfo" {
-			rep.Limitations = append([]string{"Timezone taken from controller sysinfo."}, rep.Limitations...)
-		}
-		if tzSource == "utc" {
-			rep.Limitations = append([]string{"Timezone omitted; using UTC."}, rep.Limitations...)
-		}
-		return printValue(cmd, rep, func() {
-			printWANTrafficTable(cmd, rep)
-		})
 	})
+}
+
+func applyTrafficTZNotes(lim *[]string, tzSource string) {
+	if tzSource == "sysinfo" {
+		*lim = append([]string{"Timezone taken from controller sysinfo."}, *lim...)
+	}
+	if tzSource == "utc" {
+		*lim = append([]string{"Timezone omitted; using UTC."}, *lim...)
+	}
 }
 
 func trafficAPIError(cmd *cobra.Command, schema string, site *network.TrafficSite, q *network.TrafficQuery, err error) error {
@@ -234,6 +275,36 @@ func printClientTrafficTable(cmd *cobra.Command, rep *network.ClientTrafficRepor
 		})
 	}
 	_ = printList(cmd, nil, []string{"NAME", "MAC", "DOWNLOAD", "UPLOAD", "TOTAL", "CONNECTED"},
+		rows, rep.Ranking.Offset, rep.Ranking.Returned, rep.Ranking.RankedClients)
+}
+
+func printInternetTrafficTable(cmd *cobra.Command, rep *network.InternetTrafficReport) {
+	unid := "included"
+	if !rep.IncludeUnidentified {
+		unid = "excluded"
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "site=%s scope=%s sort=%s unidentified=%s coverage=%s\n",
+		rep.Site.Name, rep.Scope, rep.Sort, unid, rep.Coverage.Status)
+	if rep.Totals == nil {
+		fmt.Fprintln(cmd.OutOrStdout(), "totals unavailable (not zero)")
+	} else {
+		_ = output.WriteTable(cmd.OutOrStdout(), []string{"DOWNLOAD", "UPLOAD", "TOTAL"}, [][]string{{
+			formatBytes(rep.Totals.DownloadBytes),
+			formatBytes(rep.Totals.UploadBytes),
+			formatBytes(rep.Totals.TotalBytes),
+		}})
+	}
+	rows := make([][]string, 0, len(rep.Clients))
+	for _, c := range rep.Clients {
+		rows = append(rows, []string{
+			firstNonEmpty(c.Name, c.Hostname, c.MAC),
+			c.MAC,
+			formatBytes(c.DownloadBytes),
+			formatBytes(c.UploadBytes),
+			formatBytes(c.TotalBytes),
+		})
+	}
+	_ = printList(cmd, nil, []string{"NAME", "MAC", "DOWNLOAD", "UPLOAD", "TOTAL"},
 		rows, rep.Ranking.Offset, rep.Ranking.Returned, rep.Ranking.RankedClients)
 }
 

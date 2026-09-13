@@ -138,8 +138,15 @@ func TestLiveDoctorAndLists(t *testing.T) {
 	if !strings.Contains(clients, `"schema": "unicli.network.traffic.clients/v1"`) || !strings.Contains(clients, `"scope": "client-all-traffic"`) {
 		t.Fatalf("traffic clients: %s", redactTraffic(clients))
 	}
-	if strings.Contains(clients, `"Internet"`) {
-		t.Fatalf("must not label client totals as Internet: %s", redactTraffic(clients))
+	internet := run("network", "traffic", "internet", "--json", "--timezone", "Europe/Warsaw", "--sort", "total", "--top", "5")
+	if !strings.Contains(internet, `"schema": "unicli.network.traffic.internet/v1"`) || !strings.Contains(internet, `"scope": "internet"`) {
+		t.Fatalf("traffic internet: %s", redactTraffic(internet))
+	}
+	if strings.Contains(internet, `"totals": 0`) {
+		t.Fatalf("missing Internet data must not be a bare zero: %s", redactTraffic(internet))
+	}
+	if !strings.Contains(internet, `"include_unidentified": true`) {
+		t.Fatalf("expected include_unidentified: %s", redactTraffic(internet))
 	}
 
 	cmd := exec.Command(bin, "access", "info", "--json")

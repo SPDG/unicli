@@ -333,6 +333,23 @@ func TestSchemaFixtureSyntheticOnly(t *testing.T) {
 	if crep.Schema != TrafficSchemaClients || len(crep.Clients) == 0 || crep.Clients[0].MAC != "aa:00:00:00:00:01" {
 		t.Fatalf("%+v", crep)
 	}
+	internet, err := os.ReadFile(filepath.Join("testdata", "traffic_internet_v1.example.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsRealish(string(internet)) {
+		t.Fatal("internet fixture leaked a real identity")
+	}
+	var irep InternetTrafficReport
+	if err := json.Unmarshal(internet, &irep); err != nil {
+		t.Fatal(err)
+	}
+	if irep.Schema != TrafficSchemaInternet || irep.Scope != trafficScopeInternet || irep.Totals == nil {
+		t.Fatalf("%+v", irep)
+	}
+	if irep.Unidentified == nil || irep.Unidentified.TotalBytes == irep.Totals.TotalBytes {
+		t.Fatalf("unidentified must not equal site totals: %+v", irep)
+	}
 }
 
 func containsRealish(s string) bool {

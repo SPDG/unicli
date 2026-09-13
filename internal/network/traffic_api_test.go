@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -179,6 +180,133 @@ func TestTrafficReportDeniedAndUnsupported(t *testing.T) {
 	})
 	api = testAPI(t, html)
 	_, err = api.StatReport(context.Background(), "default", "daily", "site", 1, 2, trafficWANAttrs)
+	if !IsTrafficUnsupported(err) {
+		t.Fatalf("html: %v", err)
+	}
+}
+
+func TestInternetTrafficGETQueryAndRanking(t *testing.T) {
+	loc := time.UTC
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, loc)
+	end := time.Date(2026, 9, 2, 0, 0, 0, 0, loc)
+	wired := true
+	var hitOther bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/v2/api/site/other/traffic", func(w http.ResponseWriter, r *http.Request) {
+		hitOther = true
+		http.Error(w, "wrong site", 500)
+	})
+	mux.HandleFunc("/proxy/network/v2/api/site/default/traffic", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method=%s", r.Method)
+		}
+		if strings.Contains(r.URL.EscapedPath(), "%3F") {
+			t.Errorf("query encoded into path: %s", r.URL.EscapedPath())
+		}
+		if r.URL.Query().Get("includeUnidentified") != "true" {
+			t.Errorf("query=%s", r.URL.RawQuery)
+		}
+		if r.URL.Query().Get("start") != strconv.FormatInt(start.UnixMilli(), 10) {
+			t.Errorf("start=%s", r.URL.Query().Get("start"))
+		}
+		if r.URL.Query().Get("end") != strconv.FormatInt(end.UnixMilli(), 10) {
+			t.Errorf("end=%s", r.URL.Query().Get("end"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"total_usage_by_app": []map[string]any{
+				{"application": 65535, "category": 255, "bytes_received": 1000, "bytes_transmitted": 100, "total_bytes": 1100, "client_count": 2},
+				{"application": 185, "category": 20, "bytes_received": 400, "bytes_transmitted": 50, "total_bytes": 450, "client_count": 1},
+			},
+			"client_usage_by_app": []map[string]any{
+				{
+					"client": map[string]any{"mac": "aa:00:00:00:00:02", "name": "laptop", "is_wired": false},
+					"usage_by_app": []map[string]any{
+						{"application": 65535, "bytes_received": 500, "bytes_transmitted": 50, "total_bytes": 550},
+					},
+				},
+				{
+					"client": map[string]any{"mac": "aa:00:00:00:00:01", "name": "nas", "hostname": "nas.lab", "is_wired": wired},
+					"usage_by_app": []map[string]any{
+						{"application": 65535, "bytes_received": 500, "bytes_transmitted": 50, "total_bytes": 550},
+						{"application": 185, "bytes_received": 400, "bytes_transmitted": 50, "total_bytes": 450},
+					},
+				},
+			},
+		})
+	})
+	api := testAPI(t, mux)
+	rep, err := api.InternetTraffic(context.Background(), TrafficSite{ID: "site-1", InternalReference: "default", Name: "lab"}, TrafficQuery{
+		Start: start, End: end, Location: loc, Timezone: "UTC", ObservedAt: end,
+		Sort: trafficSortTotal, Top: 10, AppVersion: "10.6.101",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hitOther {
+		t.Fatal("queried a different site")
+	}
+	if rep.Schema != TrafficSchemaInternet || rep.Scope != trafficScopeInternet || !rep.IncludeUnidentified {
+		t.Fatalf("%+v", rep)
+	}
+	if rep.Totals == nil || rep.Totals.DownloadBytes != 1400 || rep.Totals.TotalBytes != 1550 {
+		t.Fatalf("totals %+v", rep.Totals)
+	}
+	if rep.Unidentified == nil || rep.Unidentified.TotalBytes != 1100 || rep.Unidentified.TotalBytes == rep.Totals.TotalBytes {
+		t.Fatalf("unidentified %+v totals %+v", rep.Unidentified, rep.Totals)
+	}
+	if len(rep.Clients) != 2 || rep.Clients[0].MAC != "aa:00:00:00:00:01" || rep.Clients[0].TotalBytes != 1000 {
+		t.Fatalf("clients %+v", rep.Clients)
+	}
+}
+
+func TestInternetTrafficOmitsUnidentifiedFlag(t *testing.T) {
+	loc := time.UTC
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, loc)
+	end := time.Date(2026, 9, 2, 0, 0, 0, 0, loc)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/proxy/network/v2/api/site/default/traffic", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Has("includeUnidentified") {
+			t.Errorf("unexpected includeUnidentified: %s", r.URL.RawQuery)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"total_usage_by_app":  []any{},
+			"client_usage_by_app": []any{},
+		})
+	})
+	api := testAPI(t, mux)
+	rep, err := api.InternetTraffic(context.Background(), TrafficSite{InternalReference: "default"}, TrafficQuery{
+		Start: start, End: end, Location: loc, Timezone: "UTC", ObservedAt: end,
+		ExcludeUnidentified: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Totals != nil || rep.Coverage.Status != "empty" || rep.IncludeUnidentified {
+		t.Fatalf("%+v", rep)
+	}
+}
+
+func TestInternetTrafficDeniedAndUnsupported(t *testing.T) {
+	denied := httptestHandler(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"error":"no"}`))
+	})
+	api := testAPI(t, denied)
+	_, err := api.InternetTraffic(context.Background(), TrafficSite{InternalReference: "default"}, TrafficQuery{
+		Start: time.Unix(1, 0), End: time.Unix(2, 0), Location: time.UTC,
+	})
+	if !IsTrafficPermission(err) {
+		t.Fatalf("denied: %v", err)
+	}
+
+	html := httptestHandler(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`<!doctype html><html><title>UniFi OS</title></html>`))
+	})
+	api = testAPI(t, html)
+	_, err = api.InternetTraffic(context.Background(), TrafficSite{InternalReference: "default"}, TrafficQuery{
+		Start: time.Unix(1, 0), End: time.Unix(2, 0), Location: time.UTC,
+	})
 	if !IsTrafficUnsupported(err) {
 		t.Fatalf("html: %v", err)
 	}

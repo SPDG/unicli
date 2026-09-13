@@ -1,6 +1,6 @@
 # Traffic reports
 
-Live, read-only WAN and per-client traffic reports from the selected UniFi
+Live, read-only WAN and Internet traffic reports from the selected UniFi
 controller. There is no local metrics database, collector, daemon, or
 cached-history fallback.
 
@@ -8,25 +8,36 @@ Homelabward can answer “how much did this site download/upload since the start
 of the month, and which client transferred the most data in that period?” with:
 
 ```bash
+unicli network traffic internet --start 2026-09-01 --timezone Europe/Warsaw --sort total --top 10 --json
 unicli network traffic wan --start 2026-09-01 --timezone Europe/Warsaw --json
-unicli network traffic clients --start 2026-09-01 --timezone Europe/Warsaw --sort total --top 10 --json
 ```
+
+`network traffic internet` is Traffic Identification (Internet/DPI): site totals
+are `sum(total_usage_by_app)`, not the Unidentified (`application` 65535) row.
+Client ranking uses the same window. `network traffic wan` is the independent
+WAN site-report. `network traffic clients` is LAN-inclusive historical user
+reports, not Internet usage.
 
 Omit `--start` / `--end` for month-to-date through now. Date-only `--end` is
 inclusive of that local calendar day. Maximum range is 32 calendar days.
 
-These commands are read-only. `POST /stat/report/...` is a query, not a
-configuration mutation, and does **not** require `--allow-mutations`.
+These commands are read-only. `POST /stat/report/...` and
+`GET .../v2/api/site/{site}/traffic` are queries, not configuration mutations,
+and do **not** require `--allow-mutations`. Unidentified DPI traffic is
+included by default (`includeUnidentified=true`, matching the Network UI
+checkbox). Pass `--exclude-unidentified` to omit it.
 
 ## Schemas
 
 - `unicli.network.traffic.wan/v1`
 - `unicli.network.traffic.clients/v1`
+- `unicli.network.traffic.internet/v1`
 
 Fixtures (synthetic identities only):
 
 - `internal/network/testdata/traffic_wan_v1.example.json`
 - `internal/network/testdata/traffic_clients_v1.example.json`
+- `internal/network/testdata/traffic_internet_v1.example.json`
 
 Discover flags with `unicli schema --json`.
 
@@ -34,17 +45,20 @@ Discover flags with `unicli schema --json`.
 
 Integration v1 (`/proxy/network/integration/v1/...`) has no historical traffic
 resource (404 `No endpoint GET /integration/v1/sites/{id}/traffic` on Network
-10.6.101). The v2 Traffic Identification routes
-`/proxy/network/v2/api/site/{site}/traffic` and `country-traffic` returned HTML
-404 on the lab console (Traffic Identification not exposed).
+10.6.101).
 
-unicli therefore uses the controller report API, same `X-API-KEY` and site slug
+The v2 Traffic Identification routes **do** work with a real query string
+(`start` / `end` milliseconds) and the same `X-API-KEY`. An earlier HTML 404 was
+unicli encoding `?` into the path. See [Internet Activity UI](#internet-activity-ui-dashboard).
+
+unicli therefore uses two live controller APIs, same `X-API-KEY` and site slug
 (`internalReference`, usually `default`) as other legacy-controller commands:
 
 | Report | Method | Path |
 |--------|--------|------|
 | WAN site | POST | `/proxy/network/api/s/{site}/stat/report/{interval}.site` |
-| Clients | POST | `/proxy/network/api/s/{site}/stat/report/{interval}.user` |
+| Clients (LAN) | POST | `/proxy/network/api/s/{site}/stat/report/{interval}.user` |
+| Internet / DPI | GET | `/proxy/network/v2/api/site/{site}/traffic?start=&end=&includeUnidentified=true` |
 
 `{interval}` is `daily`, `hourly`, then `5minutes`. Body:
 
@@ -63,10 +77,15 @@ JSON output sets `"backend": "legacy-controller"`.
 | Command | Scope | Download | Upload |
 |---------|-------|----------|--------|
 | `traffic wan` | `wan` | `wan-rx_bytes` (+ `wan2-rx_bytes` when present) | `wan-tx_bytes` (+ `wan2-tx_bytes`) |
+| `traffic internet` | `internet` | sum of `total_usage_by_app.bytes_received` | sum of `total_usage_by_app.bytes_transmitted` |
 | `traffic clients` | `client-all-traffic` | `rx_bytes` + `wired-rx_bytes` when present | `tx_bytes` + `wired-tx_bytes` when present |
 
-Client counters are LAN-inclusive (all traffic UniFi attributed to the client).
-They are **not** Internet/WAN usage. WAN site totals are the Internet figures.
+`traffic internet` is Traffic Identification (Internet/DPI). Application 65535
+(category 255) is Unidentified and is exposed as `unidentified`, never as the
+site total. Client ranking sums each client's `usage_by_app` rows.
+`traffic clients` counters are LAN-inclusive (all traffic UniFi attributed to
+the client). They are **not** Internet/WAN usage. WAN site totals from
+`traffic wan` are the Internet figures from site reports.
 
 Missing attributes are omitted, never coerced to zero. Empty successful reports
 yield `"totals": null` and `coverage.status=empty`. Denied endpoints exit `6`
@@ -118,13 +137,73 @@ Limits: 32 calendar days, `--top` ≤ 100, `--all` ≤ 200 ranked clients.
 Site scoping is the selected profile/site slug. Reports are not mixed across
 sites.
 
-## Live proof (lab, 2026-09-13)
+## Internet Activity UI (dashboard)
+
+The Network UI chart (Flows → Activity → Internet Activity) is **not** Integration.
+The browser calls:
+
+```
+GET /proxy/network/v2/api/site/{site}/aggregated-dashboard?historySeconds=86400
+```
+
+This works with the same `X-API-KEY` as unicli. `historySeconds` 86400 / 604800 /
+2592000 map to the UI 1d / 7d / 1m presets. The payload includes:
+
+- `wan_activity.total_activity.summary.{rx_bytes,tx_bytes}` — WAN totals for the window
+- `most_active_apps_aps_clients.usage_by` — mixed top-30 of `type=client|app|ap`
+  (`received_bytes` / `transmitted_bytes` / `total_bytes`)
+
+On Network 10.6.101 this matched the UI (blackbox ~67.8 GB on the 1d view).
+It is a **top-N Internet Activity snapshot**, not a complete historical ranking
+of every client.
+
+The Flows/Traffic Identification table is the timestamped ranking:
+
+```
+GET /proxy/network/v2/api/site/{site}/traffic?start=&end=&includeUnidentified=true
+```
+
+GET only (`start`/`end` required). Payload:
+
+- `client_usage_by_app[]` — every client in the window (`client.{mac,name,is_wired}`, `usage_by_app[]` with `bytes_received` / `bytes_transmitted` / `total_bytes`)
+- `total_usage_by_app[]` — site app totals; summing clients equals summing apps
+
+This is Internet/DPI usage, not LAN-inclusive `stat/report`. `includeUnidentified=true` matches the UI checkbox. Live: 1d and 7d top client matched the dashboard (pi-4-8g-01 ~328 GB on 7d); MTD returned 81 clients, rolling 30d returned 98.
+
+unicli wraps this as `network traffic internet`. Site `totals` are the sum of
+`total_usage_by_app`; `unidentified` is the 65535 row. Client `usage_by_app`
+lists are aggregated into ranked `clients`.
+
+The Internet Activity chart for one client uses a second route with arbitrary
+millisecond `start` / `end` (POST, not GET):
+
+```
+POST /proxy/network/v2/api/site/{site}/app-traffic-rate?start=&end=&includeUnidentified=true
+{"client_macs":["aa:bb:cc:dd:ee:ff"]}
+```
+
+Empty `client_macs` is site-wide. Response is a timeseries (`timestamp`,
+`interval_seconds`, `rx_byte-r`, `tx_byte-r`, `total_bytes`). Resolution is
+chosen by the controller (~5 min for 1d, hourly for 7d, daily beyond that).
+Byte totals for a window are `sum(rate * interval_seconds)` or `sum(total_bytes)`.
+`start` equal to a local midnight skips that daily bucket; pass an instant
+before midnight to include the day. Multiple MACs do not return labeled
+per-client series. `includeUnidentified=true` matches the UI checkbox and can
+change client totals a lot.
+
+unicli `network traffic wan` (site `stat/report`) is the full-range WAN total.
+`network traffic internet` is the timestamped Internet/DPI ranking.
+`network traffic clients` remains LAN-inclusive user reports. Dashboard
+top-talkers and `app-traffic-rate` timeseries are not separate unicli commands.
 
 Read-only probes against the configured console, no mutations:
 
 - `GET /proxy/network/integration/v1/info` → `applicationVersion=10.6.101`
 - Integration traffic/statistics/reports paths → HTTP 404 (no historical Integration API)
-- v2 `/traffic`, `/country-traffic`, `/clients/history` → HTML 404
+- v2 `traffic?start=&end=` → 200 JSON (Internet client/app ranking; API key is enough)
+- v2 `country-traffic?start=&end=` → 200 JSON
+- v2 `aggregated-dashboard?historySeconds=` → 200 JSON (Internet Activity UI; API key is enough)
+- v2 `clients/history?includeTrafficUsage=true` → 200, but sampled rows lacked per-window rx/tx
 - `POST .../stat/report/5minutes.site` → 36 WAN buckets (`wan-rx_bytes` / `wan-tx_bytes`)
 - `POST .../stat/report/hourly.site` → 48 WAN buckets
 - `POST .../stat/report/daily.site` → 13 WAN buckets (month-to-date including today)

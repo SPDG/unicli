@@ -15,26 +15,31 @@ import (
 )
 
 const (
-	TrafficSchemaWAN     = "unicli.network.traffic.wan/v1"
-	TrafficSchemaClients = "unicli.network.traffic.clients/v1"
+	TrafficSchemaWAN      = "unicli.network.traffic.wan/v1"
+	TrafficSchemaClients  = "unicli.network.traffic.clients/v1"
+	TrafficSchemaInternet = "unicli.network.traffic.internet/v1"
 
 	MaxTrafficCalendarDays = 32
 	DefaultTrafficTop      = 10
 	MaxTrafficTop          = 100
 	MaxTrafficRankedAll    = 200
 
-	trafficScopeWAN       = "wan"
-	trafficScopeClientAll = "client-all-traffic"
-	trafficBackendLegacy  = "legacy-controller"
-	trafficSourceKind     = "unifi-controller-report"
-	trafficSortDownload   = "download"
-	trafficSortUpload     = "upload"
-	trafficSortTotal      = "total"
-	trafficRes5Min        = "5minutes"
-	trafficResHour        = "hourly"
-	trafficResDay         = "daily"
-	trafficReportSite     = "site"
-	trafficReportUser     = "user"
+	trafficScopeWAN        = "wan"
+	trafficScopeClientAll  = "client-all-traffic"
+	trafficScopeInternet   = "internet"
+	trafficBackendLegacy   = "legacy-controller"
+	trafficSourceKind      = "unifi-controller-report"
+	trafficSourceTrafficID = "unifi-traffic-identification"
+	trafficUnidentifiedApp = 65535
+	trafficUnidentifiedCat = 255
+	trafficSortDownload    = "download"
+	trafficSortUpload      = "upload"
+	trafficSortTotal       = "total"
+	trafficRes5Min         = "5minutes"
+	trafficResHour         = "hourly"
+	trafficResDay          = "daily"
+	trafficReportSite      = "site"
+	trafficReportUser      = "user"
 )
 
 var (
@@ -49,16 +54,17 @@ var (
 
 // TrafficQuery is a live controller report window.
 type TrafficQuery struct {
-	Start      time.Time
-	End        time.Time
-	Location   *time.Location
-	Timezone   string
-	ObservedAt time.Time
-	Sort       string
-	Offset     int
-	Top        int
-	All        bool
-	AppVersion string
+	Start               time.Time
+	End                 time.Time
+	Location            *time.Location
+	Timezone            string
+	ObservedAt          time.Time
+	Sort                string
+	Offset              int
+	Top                 int
+	All                 bool
+	AppVersion          string
+	ExcludeUnidentified bool
 }
 
 // TrafficSite is the selected Network site for a report.

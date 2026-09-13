@@ -85,6 +85,34 @@ func TestAPIErrorOn401(t *testing.T) {
 	}
 }
 
+func TestGetPathJSONKeepsQueryString(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/proxy/network/v2/api/site/default/aggregated-dashboard" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("historySeconds") != "86400" {
+			t.Errorf("query = %s", r.URL.RawQuery)
+		}
+		if strings.Contains(r.URL.EscapedPath(), "%3F") {
+			t.Errorf("query was encoded into the path: %s", r.URL.EscapedPath())
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(srv.URL, "k", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	err = c.GetPathJSON(context.Background(), "/proxy/network/v2/api/site/default/aggregated-dashboard?historySeconds=86400", nil, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out["ok"] != true {
+		t.Fatalf("%v", out)
+	}
+}
+
 func TestHTMLResponseIsAppUnavailable(t *testing.T) {
 	html := `<!doctype html><html lang="en"><head><title>UniFi OS</title></head><body></body></html>`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

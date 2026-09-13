@@ -74,7 +74,7 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 | Port forwards / DHCP | `network port-forwards`, `network dhcp reservations` |
 | Health / DDNS / client groups | `network health`, `network dynamic-dns`, `network client-groups` |
 | Read-only extras | `network vpn`, `network wans`, `network dpi`, `network radius`, `network switching`, `network tags`, `network pending-devices` |
-| Traffic reports | `network traffic wan`, `network traffic clients` (live controller `stat/report`; WAN vs LAN-inclusive client totals) |
+| Traffic reports | `network traffic internet` (Internet/DPI ranking + site totals), `network traffic wan` (site WAN), `network traffic clients` (LAN-inclusive `stat/report`) |
 | Clients | `network clients list\|get` (get accepts name/MAC/IP; includes VLAN, switch port, link, auth) |
 | Topology / diagnose | `network topology path <a> <b>`, `network diagnose --client <name|mac|ip>` |
 | Switch ports | `network ports list` (`--compact`), `network ports find --mac\|--ip\|--client` |
@@ -87,7 +87,7 @@ If `offset + count < totalCount`, fetch the next page with `--offset`, or pass `
 
 Some commands fill Integration-API gaps via the local controller REST/v2 API. The CLI surface stays the same; JSON may include `"backend":"legacy-controller"` so agents can tell. Prefer Integration resources when both exist (VLANs, WiFi broadcasts, matching-lists). Firewall policy **list/get** uses v2 so every policy has an id and hit counters (Integration list often omits custom UUIDs).
 
-Mutations need `--allow-mutations` and `--yes` when non-interactive. `network traffic wan` and `network traffic clients` POST controller report queries and are read-only. Create/update of complex DTOs (WiFi, firewall policy, DHCP) use `--from-json` (object, file, or `-`). Do not put passphrases or API keys on argv. `enable`/`disable` GET the object, drop read-only fields, and PUT. WiFi passphrases and Protect RTSPS tokens stay redacted unless `--include-secrets`. `protect cameras snapshot` writes JPEG to `--output` (or stdout with `-o -`). `protect cameras set` also covers `--lcd`, OSD, LED, and `--detect`. `protect nvr arm|disarm` PATCHes alarm-manager state (may 404 on older firmware).
+Mutations need `--allow-mutations` and `--yes` when non-interactive. `network traffic wan`, `network traffic clients`, and `network traffic internet` are read-only controller queries (POST `stat/report` or GET v2 `/traffic`). Create/update of complex DTOs (WiFi, firewall policy, DHCP) use `--from-json` (object, file, or `-`). Do not put passphrases or API keys on argv. `enable`/`disable` GET the object, drop read-only fields, and PUT. WiFi passphrases and Protect RTSPS tokens stay redacted unless `--include-secrets`. `protect cameras snapshot` writes JPEG to `--output` (or stdout with `-o -`). `protect cameras set` also covers `--lcd`, OSD, LED, and `--detect`. `protect nvr arm|disarm` PATCHes alarm-manager state (may 404 on older firmware).
 
 ## Exit codes
 

@@ -1,0 +1,122 @@
+{
+  "schema": "unicli.network.traffic.internet/v1",
+  "backend": "legacy-controller",
+  "source": {
+    "kind": "unifi-traffic-identification",
+    "backend": "legacy-controller",
+    "application_version": "10.6.101",
+    "endpoints": [
+      "GET /proxy/network/v2/api/site/{site}/traffic"
+    ],
+    "attrs": ["bytes_received", "bytes_transmitted", "total_bytes", "application", "category"],
+    "counter_semantics": "Internet/DPI Traffic Identification. Site totals are sum(total_usage_by_app). Application 65535 is Unidentified, not the grand total."
+  },
+  "site": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "internal_reference": "default",
+    "name": "lab"
+  },
+  "observed_at": "2026-09-13T01:20:00+02:00",
+  "timezone": "Europe/Warsaw",
+  "requested_interval": {
+    "start": "2026-09-01T00:00:00+02:00",
+    "end": "2026-09-13T01:20:00+02:00"
+  },
+  "covered_interval": {
+    "start": "2026-09-01T00:00:00+02:00",
+    "end": "2026-09-13T01:20:00+02:00"
+  },
+  "units": {
+    "bytes": "B",
+    "note": "Integer bytes. Raw controller values may be fractional; they are summed as floats and rounded once after aggregation."
+  },
+  "scope": "internet",
+  "sort": "total",
+  "include_unidentified": true,
+  "totals": {
+    "download_bytes": 1400,
+    "upload_bytes": 150,
+    "total_bytes": 1550
+  },
+  "unidentified": {
+    "download_bytes": 1000,
+    "upload_bytes": 100,
+    "total_bytes": 1100
+  },
+  "coverage": {
+    "status": "complete",
+    "requested": {
+      "start": "2026-09-01T00:00:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00"
+    },
+    "covered": {
+      "start": "2026-09-01T00:00:00+02:00",
+      "end": "2026-09-13T01:20:00+02:00"
+    },
+    "requested_ms": 1046400000,
+    "covered_ms": 1046400000,
+    "gap_ms": 0,
+    "pending_ms": 0,
+    "completeness": 1,
+    "resolutions_used": ["traffic-identification"],
+    "gaps": [],
+    "unknown_buckets": 0
+  },
+  "ranking": {
+    "sort": "total",
+    "partial": true,
+    "bounded": true,
+    "truncated": false,
+    "top": 10,
+    "offset": 0,
+    "returned": 2,
+    "ranked_clients": 3,
+    "note": "Ranking covers every client in Traffic Identification for the requested window, including clients that are currently offline."
+  },
+  "clients": [
+    {
+      "mac": "aa:00:00:00:00:01",
+      "name": "nas",
+      "hostname": "nas.lab",
+      "wired": true,
+      "download_bytes": 900,
+      "upload_bytes": 100,
+      "total_bytes": 1000,
+      "app_count": 2
+    },
+    {
+      "mac": "aa:00:00:00:00:02",
+      "name": "laptop",
+      "wired": false,
+      "download_bytes": 500,
+      "upload_bytes": 50,
+      "total_bytes": 550,
+      "app_count": 1
+    }
+  ],
+  "apps": [
+    {
+      "application": 65535,
+      "category": 255,
+      "name": "Unidentified",
+      "unidentified": true,
+      "download_bytes": 1000,
+      "upload_bytes": 100,
+      "total_bytes": 1100,
+      "client_count": 2
+    },
+    {
+      "application": 185,
+      "category": 20,
+      "unidentified": false,
+      "download_bytes": 400,
+      "upload_bytes": 50,
+      "total_bytes": 450,
+      "client_count": 1
+    }
+  ],
+  "limitations": [
+    "Synthetic fixture. Identities and counters are invented.",
+    "Internet/DPI totals must not be confused with LAN-inclusive client reports."
+  ]
+}

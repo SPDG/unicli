@@ -142,10 +142,18 @@ func (c *Client) do(ctx context.Context, method, absPath string, query url.Value
 	if !strings.HasPrefix(absPath, "/") {
 		absPath = "/" + absPath
 	}
-	u := c.base.ResolveReference(&url.URL{Path: absPath})
-	if query != nil {
-		u.RawQuery = query.Encode()
+	parsed, err := url.Parse(absPath)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse path: %w", err)
 	}
+	u := c.base.ResolveReference(&url.URL{Path: parsed.Path})
+	q := parsed.Query()
+	for k, vs := range query {
+		for _, v := range vs {
+			q.Add(k, v)
+		}
+	}
+	u.RawQuery = q.Encode()
 
 	var payload []byte
 	if reqBody != nil {
